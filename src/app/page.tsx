@@ -1,3 +1,4 @@
+import Timer from "../components/timer/timer";
 export default function Home() {
-  return <h1>Helloo gauyyiizzzzz</h1>;
+  return <Timer />;
 }

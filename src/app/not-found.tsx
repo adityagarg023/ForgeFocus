@@ -2,7 +2,7 @@ import { AlertTriangle } from "react-feather";
 
 export default function NotFound() {
   return (
-    <div className=" h-[100vh] w-[100vw] flex flex-col items-center justify-center">
+    <div className=" h-[90vh] w-[100vw] flex flex-col items-center justify-center">
       <div className="flex items-center justify-center">
         <AlertTriangle className="size-40 inline" />
         <h1 className="text-6xl font-bold"> Error 404</h1>
