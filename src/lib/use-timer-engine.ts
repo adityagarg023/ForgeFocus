@@ -76,6 +76,7 @@ function persistCompletedSession(session: CompletedSession) {
   if (history.some((item) => item.sessionId === session.sessionId)) return;
   history.unshift(session);
   localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  window.dispatchEvent(new Event("forgefocus:sessions-updated"));
 }
 
 export function useTimerEngine() {

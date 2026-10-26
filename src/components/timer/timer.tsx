@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatTime } from "@/lib/timer-engine";
 import { useTimerEngine } from "@/lib/use-timer-engine";
+import { useSessions } from "@/lib/use-sessions";
 
 function TimeInput({
   label,
@@ -25,12 +26,10 @@ function TimeInput({
       onFocus={(event) => event.currentTarget.select()}
       onChange={(event) => {
         const digits = event.target.value.replace(/\D/g, "").slice(0, 2);
-
         if (digits === "") {
           onChange("");
           return;
         }
-
         onChange(String(Math.min(Number(digits), max)));
       }}
       onBlur={() => {
@@ -45,18 +44,25 @@ export default function Timer() {
   const [hours, setHours] = useState("00");
   const [minutes, setMinutes] = useState("00");
   const [seconds, setSeconds] = useState("00");
+  const [notes, setNotes] = useState("");
 
   const timer = useTimerEngine();
+  const { updateNotes } = useSessions();
+  const { status, session } = timer;
+
+  useEffect(() => {
+    if (status === "Idle") {
+      setNotes("");
+    }
+  }, [status]);
 
   if (!timer.hydrated) {
     return (
-      <div className="flex min-h-60 items-center justify-center text-white">
+      <div className="flex min-h-60 items-center justify-center text-[#6e7681]">
         Restoring your timer...
       </div>
     );
   }
-
-  const { status, session } = timer;
 
   const isIdle = status === "Idle";
   const isActive = [
@@ -79,59 +85,110 @@ export default function Timer() {
         ? formatTime(timer.overtimeMs)
         : formatTime(session?.totalFocusTime ?? 0);
 
+  const handleFinish = () => {
+    timer.complete("");
+  };
+
+  const handleSaveNotes = () => {
+    if (session) {
+      updateNotes(session.sessionId, notes.trim());
+    }
+    timer.reset();
+  };
+
   return (
-    <div className="mx-auto mt-30 flex w-[90%] max-w-5xl flex-col items-center gap-6 rounded-4xl border-2 border-white px-4 py-10 text-white sm:px-8">
-      <h1 className="text-4xl font-bold sm:text-6xl">ForgeFocus</h1>
+    <div className="mx-auto flex w-[90%] max-w-3xl flex-col items-center gap-6 rounded-3xl border border-[#30363d] bg-[#161b22]/80 px-4 py-10 backdrop-blur-sm sm:px-10">
+      <div className="flex items-center gap-2 text-xs text-[#6e7681]">
+        <StatusDot status={status} />
+        <span>
+          {status === "Idle" && "Ready to focus"}
+          {status === "Running" && "Focus session in progress"}
+          {status === "Paused" && "Paused"}
+          {status === "Stopwatch Running" && "Overtime — keep going!"}
+          {status === "Stopwatch Paused" && "Overtime paused"}
+          {status === "Complete" && "Session completed"}
+          {status === "Discard" && "Session discarded"}
+        </span>
+      </div>
 
-      <p className="text-sm text-gray-400">
-        {status === "Idle" && "Set your planned focus duration"}
-        {status === "Running" && "Focus session in progress"}
-        {status === "Paused" && "Focus session paused"}
-        {status === "Stopwatch Running" && "Overtime — keep going!"}
-        {status === "Stopwatch Paused" && "Overtime paused"}
-        {status === "Complete" && "Session completed. Well done!"}
-        {status === "Discard" && "Session discarded"}
-      </p>
-
-      <div className="whitespace-nowrap font-extrabold text-[clamp(2rem,10vw,8rem)]">
+      <div className="whitespace-nowrap font-extrabold text-[clamp(2.5rem,12vw,7rem)] tabular-nums">
         {isIdle ? (
-          <div className="flex items-center justify-center">
-            <TimeInput
-              label="Hours"
-              value={hours}
-              onChange={setHours}
-              max={99}
-            />
-            <span>:</span>
-            <TimeInput
-              label="Minutes"
-              value={minutes}
-              onChange={setMinutes}
-              max={59}
-            />
-            <span>:</span>
-            <TimeInput
-              label="Seconds"
-              value={seconds}
-              onChange={setSeconds}
-              max={59}
-            />
+          <div className="flex items-center justify-center text-[#e6edf3]">
+            <TimeInput label="Hours" value={hours} onChange={setHours} max={99} />
+            <span className="text-[#30363d]">:</span>
+            <TimeInput label="Minutes" value={minutes} onChange={setMinutes} max={59} />
+            <span className="text-[#30363d]">:</span>
+            <TimeInput label="Seconds" value={seconds} onChange={setSeconds} max={59} />
           </div>
         ) : (
-          <div className="text-center">
+          <div
+            className={`text-center ${
+              status.startsWith("Stopwatch")
+                ? "text-[#d29922]"
+                : status === "Complete"
+                  ? "text-[#3fb950]"
+                  : "text-[#e6edf3]"
+            }`}
+          >
             {status.startsWith("Stopwatch") ? `+${displayTime}` : displayTime}
           </div>
         )}
       </div>
 
+      <div className="flex h-6 items-center gap-3 text-sm text-[#6e7681]">
+        {isIdle && <span>Set your planned focus duration</span>}
+        {isCountdown && (
+          <span>
+            Planned: {formatTime(session?.plannedDuration ?? 0)}
+          </span>
+        )}
+        {(status === "Stopwatch Running" || status === "Stopwatch Paused") && (
+          <span>
+            Planned: {formatTime(session?.plannedDuration ?? 0)} · Overtime
+          </span>
+        )}
+      </div>
+
       {status === "Complete" && session && (
-        <div className="text-center">
-          <p className="text-lg font-semibold">
-            Total focus time: {formatTime(session.totalFocusTime ?? 0)}
-          </p>
-          <p className="mt-1 text-sm text-gray-400">
-            Planned: {formatTime(session.plannedDuration)}
-          </p>
+        <div className="animate-fade-in-up w-full max-w-md rounded-2xl border border-[#30363d] bg-[#1c2128] p-5">
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <SummaryStat
+              label="Planned"
+              value={formatTime(session.plannedDuration)}
+            />
+            <SummaryStat
+              label="Focused"
+              value={formatTime(session.totalFocusTime ?? 0)}
+              color="text-[#3fb950]"
+            />
+            <SummaryStat
+              label="Overtime"
+              value={formatTime(
+                Math.max(0, (session.totalFocusTime ?? 0) - session.plannedDuration),
+              )}
+              color={
+                (session.totalFocusTime ?? 0) > session.plannedDuration
+                  ? "text-[#d29922]"
+                  : "text-[#6e7681]"
+              }
+            />
+          </div>
+
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            maxLength={500}
+            rows={3}
+            placeholder="What did you accomplish? (optional)"
+            className="mt-4 w-full resize-none rounded-xl border border-[#30363d] bg-[#0d1117] px-4 py-3 text-sm text-[#e6edf3] placeholder:text-[#6e7681] focus:border-[#2f81f7]"
+          />
+
+          <button
+            onClick={handleSaveNotes}
+            className="mt-3 w-full rounded-xl bg-[#2f81f7] py-3 font-semibold text-white transition-colors hover:bg-[#1f6feb]"
+          >
+            Save Session
+          </button>
         </div>
       )}
 
@@ -140,7 +197,7 @@ export default function Timer() {
           <button
             onClick={() => timer.start(selectedSeconds)}
             disabled={selectedSeconds <= 0}
-            className="rounded-xl bg-white px-6 py-3 font-semibold text-black disabled:opacity-40"
+            className="rounded-xl bg-[#2f81f7] px-8 py-3.5 font-semibold text-white transition-all hover:bg-[#1f6feb] disabled:cursor-not-allowed disabled:opacity-30"
           >
             Start Focus
           </button>
@@ -149,7 +206,7 @@ export default function Timer() {
         {(status === "Running" || status === "Stopwatch Running") && (
           <button
             onClick={timer.pause}
-            className="rounded-xl bg-white px-6 py-3 font-semibold text-black"
+            className="rounded-xl border border-[#30363d] bg-[#1c2128] px-6 py-3.5 font-semibold text-[#e6edf3] transition-colors hover:border-[#8b949e]"
           >
             Pause
           </button>
@@ -158,7 +215,7 @@ export default function Timer() {
         {(status === "Paused" || status === "Stopwatch Paused") && (
           <button
             onClick={timer.resume}
-            className="rounded-xl bg-white px-6 py-3 font-semibold text-black"
+            className="rounded-xl bg-[#3fb950] px-6 py-3.5 font-semibold text-white transition-colors hover:bg-[#2ea043]"
           >
             Resume
           </button>
@@ -167,10 +224,10 @@ export default function Timer() {
         {isActive && (
           <>
             <button
-              onClick={() => timer.complete()}
-              className="rounded-xl border border-white px-6 py-3 font-semibold"
+              onClick={handleFinish}
+              className="rounded-xl bg-[#2f81f7] px-6 py-3.5 font-semibold text-white transition-colors hover:bg-[#1f6feb]"
             >
-              Finish Session
+              Finish
             </button>
 
             <button
@@ -179,7 +236,7 @@ export default function Timer() {
                   timer.discard();
                 }
               }}
-              className="rounded-xl border border-red-400 px-6 py-3 font-semibold text-red-300"
+              className="rounded-xl border border-[#f85149]/50 px-6 py-3.5 font-semibold text-[#f85149] transition-colors hover:bg-[#f85149]/10"
             >
               Discard
             </button>
@@ -189,12 +246,51 @@ export default function Timer() {
         {(status === "Complete" || status === "Discard") && (
           <button
             onClick={timer.reset}
-            className="rounded-xl bg-white px-6 py-3 font-semibold text-black"
+            className="rounded-xl bg-[#2f81f7] px-8 py-3.5 font-semibold text-white transition-colors hover:bg-[#1f6feb]"
           >
             New Session
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function StatusDot({ status }: { status: string }) {
+  const color =
+    status === "Running" || status === "Stopwatch Running"
+      ? "bg-[#3fb950]"
+      : status === "Paused" || status === "Stopwatch Paused"
+        ? "bg-[#d29922]"
+        : status === "Complete"
+          ? "bg-[#2f81f7]"
+          : status === "Discard"
+            ? "bg-[#f85149]"
+            : "bg-[#30363d]";
+
+  const animate =
+    status === "Running" || status === "Stopwatch Running" ? "animate-pulse" : "";
+
+  return (
+    <span
+      className={`inline-block h-2 w-2 rounded-full ${color} ${animate}`}
+    />
+  );
+}
+
+function SummaryStat({
+  label,
+  value,
+  color = "text-[#e6edf3]",
+}: {
+  label: string;
+  value: string;
+  color?: string;
+}) {
+  return (
+    <div>
+      <div className={`text-lg font-bold tabular-nums ${color}`}>{value}</div>
+      <div className="mt-0.5 text-xs text-[#6e7681]">{label}</div>
     </div>
   );
 }

@@ -6,15 +6,102 @@
 
 @font-face {
   font-family: JetBrainsMono;
-  src: url(../../public/JetBrains_Mono/JetBrainsMono-VariableFont_wght.ttf);
+  src: url(/JetBrains_Mono/JetBrainsMono-VariableFont_wght.ttf);
+  font-weight: 100 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: JetBrainsMono;
+  src: url(/JetBrains_Mono/JetBrainsMono-Italic-VariableFont_wght.ttf);
+  font-weight: 100 800;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  --bg-base: #0d1117;
+  --bg-surface: #161b22;
+  --bg-elevated: #1c2128;
+  --border-default: #30363d;
+  --border-muted: #21262d;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --accent: #2f81f7;
+  --accent-hover: #1f6feb;
+  --success: #3fb950;
+  --warning: #d29922;
+  --error: #f85149;
 }
 
 html,
-body,
-#root {
+body {
   width: 100%;
   min-height: 100%;
-  font-family: JetBrainsMono;
-  background-color: #0d1117;
-  color: white;
+  font-family: JetBrainsMono, ui-monospace, monospace;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-image: radial-gradient(
+      ellipse 80% 50% at 50% -20%,
+      rgba(47, 129, 247, 0.12),
+      transparent
+    );
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(47, 129, 247, 0.3);
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out both;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out both;
+}
+
+input[type="text"]:focus,
+textarea:focus {
+  outline: none;
 }
