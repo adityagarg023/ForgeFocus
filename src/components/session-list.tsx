@@ -6,7 +6,7 @@ import { formatTime } from "@/lib/timer-engine";
 import SessionCard, { NotesModal } from "./session-card";
 
 export default function SessionList() {
-  const { todaySessions, todayCount, todayFocusMs, hydrated, removeSession, updateNotes } =
+  const { todaySessions, todayCount, todayFocusMs, hydrated, error, refresh, removeSession, updateNotes } =
     useSessions();
   const [editing, setEditing] = useState<{
     sessionId: string;
