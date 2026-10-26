@@ -14,9 +14,30 @@ function readLocalSessions(): CompletedSession[] {
   try {
     const raw = localStorage.getItem(HISTORY_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as CompletedSession[];
+    const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed;
+    return parsed.filter((item): item is CompletedSession => {
+      if (!item || typeof item !== "object") return false;
+      const session = item as Partial<CompletedSession>;
+      return (
+        typeof session.sessionId === "string" &&
+        session.sessionId.length > 0 &&
+        typeof session.plannedDuration === "number" &&
+        Number.isFinite(session.plannedDuration) &&
+        session.plannedDuration > 0 &&
+        typeof session.totalFocusTime === "number" &&
+        Number.isFinite(session.totalFocusTime) &&
+        session.totalFocusTime >= 0 &&
+        typeof session.overtimeMs === "number" &&
+        Number.isFinite(session.overtimeMs) &&
+        session.overtimeMs >= 0 &&
+        typeof session.completedAt === "number" &&
+        Number.isFinite(session.completedAt) &&
+        (session.startedAt === undefined ||
+          (typeof session.startedAt === "number" && Number.isFinite(session.startedAt))) &&
+        (session.notes === null || typeof session.notes === "string")
+      );
+    });
   } catch {
     localStorage.removeItem(HISTORY_KEY);
     return [];
@@ -25,8 +46,12 @@ function readLocalSessions(): CompletedSession[] {
 
 function writeLocalSessions(sessions: CompletedSession[]) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions));
-  window.dispatchEvent(new Event(STORAGE_EVENT));
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions));
+    window.dispatchEvent(new Event(STORAGE_EVENT));
+  } catch {
+    // Storage may be unavailable or full; keep the UI responsive.
+  }
 }
 
 export function isToday(timestamp: number): boolean {
@@ -46,6 +71,7 @@ function sessionRecordToCompleted(record: SessionRecord): CompletedSession {
     totalFocusTime: record.totalFocusTime,
     overtimeMs: record.overtimeMs,
     completedAt: record.completedAt,
+    startedAt: record.startedAt,
     notes: record.notes,
   };
 }
@@ -60,7 +86,7 @@ function completedToCreateInput(
     plannedDuration: session.plannedDuration,
     totalFocusTime: session.totalFocusTime,
     overtimeMs: session.overtimeMs,
-    startedAt: session.completedAt - session.totalFocusTime,
+    startedAt: session.startedAt ?? session.completedAt - session.totalFocusTime,
     completedAt: session.completedAt,
     notes: session.notes,
   };
@@ -69,6 +95,7 @@ function completedToCreateInput(
 export function useSessions() {
   const { user, isLoaded } = useUser();
   const isSignedIn = !!user;
+  const userId = user?.id ?? null;
 
   const [sessions, setSessions] = useState<CompletedSession[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -78,12 +105,14 @@ export function useSessions() {
     setSessions(readLocalSessions());
   }, []);
 
-  const refreshServer = useCallback(async () => {
+  const refreshServer = useCallback(async (signal?: AbortSignal) => {
     try {
-      const records = await sessionsApi.list();
+      const records = await sessionsApi.list(signal);
+      if (signal?.aborted) return;
       setSessions(records.map(sessionRecordToCompleted));
       setError(null);
     } catch (err) {
+      if (signal?.aborted) return;
       if (err instanceof SessionsApiError && err.statusCode === 401) {
         setError("Please sign in to view your sessions.");
       } else {
@@ -96,25 +125,35 @@ export function useSessions() {
   useEffect(() => {
     if (!isLoaded) return;
 
+    // Clear account-specific state on identity changes so one account's
+    // cached history is never shown while another account is loading.
+    setSessions([]);
+    setError(null);
+    setHydrated(false);
+
     if (isSignedIn) {
-      refreshServer().finally(() => setHydrated(true));
-    } else {
-      refreshLocal();
-      setHydrated(true);
-
-      const handleStorage = (e: StorageEvent) => {
-        if (e.key === HISTORY_KEY) refreshLocal();
-      };
-      const handleCustom = () => refreshLocal();
-
-      window.addEventListener("storage", handleStorage);
-      window.addEventListener(STORAGE_EVENT, handleCustom);
-      return () => {
-        window.removeEventListener("storage", handleStorage);
-        window.removeEventListener(STORAGE_EVENT, handleCustom);
-      };
+      const controller = new AbortController();
+      refreshServer(controller.signal).finally(() => {
+        if (!controller.signal.aborted) setHydrated(true);
+      });
+      return () => controller.abort();
     }
-  }, [isLoaded, isSignedIn, refreshLocal, refreshServer]);
+
+    refreshLocal();
+    setHydrated(true);
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === HISTORY_KEY) refreshLocal();
+    };
+    const handleCustom = () => refreshLocal();
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(STORAGE_EVENT, handleCustom);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(STORAGE_EVENT, handleCustom);
+    };
+  }, [isLoaded, isSignedIn, userId, refreshLocal, refreshServer]);
 
   const removeSession = useCallback(
     async (sessionId: string) => {
