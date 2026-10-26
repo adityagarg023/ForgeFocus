@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { formatTime } from "@/lib/timer-engine";
 import { useTimerEngine, type CompletedSession } from "@/lib/use-timer-engine";
 import { useSessions } from "@/lib/use-sessions";
