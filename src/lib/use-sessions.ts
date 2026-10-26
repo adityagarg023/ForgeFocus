@@ -14,19 +14,45 @@ function readLocalSessions(): CompletedSession[] {
   try {
     const raw = localStorage.getItem(HISTORY_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as CompletedSession[];
+    const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed;
+    return parsed.filter((item): item is CompletedSession => {
+      if (!item || typeof item !== "object") return false;
+      const session = item as Partial<CompletedSession>;
+      return (
+        typeof session.sessionId === "string" &&
+        session.sessionId.length > 0 &&
+        typeof session.plannedDuration === "number" &&
+        Number.isFinite(session.plannedDuration) &&
+        session.plannedDuration > 0 &&
+        typeof session.totalFocusTime === "number" &&
+        Number.isFinite(session.totalFocusTime) &&
+        session.totalFocusTime >= 0 &&
+        typeof session.overtimeMs === "number" &&
+        Number.isFinite(session.overtimeMs) &&
+        session.overtimeMs >= 0 &&
+        typeof session.completedAt === "number" &&
+        Number.isFinite(session.completedAt) &&
+        (session.startedAt === undefined ||
+          (typeof session.startedAt === "number" && Number.isFinite(session.startedAt))) &&
+        (session.notes === null || typeof session.notes === "string")
+      );
+    });
   } catch {
-    localStorage.removeItem(HISTORY_KEY);
+    try { localStorage.removeItem(HISTORY_KEY); } catch { /* storage unavailable */ }
     return [];
   }
 }
 
-function writeLocalSessions(sessions: CompletedSession[]) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions));
-  window.dispatchEvent(new Event(STORAGE_EVENT));
+function writeLocalSessions(sessions: CompletedSession[]): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions));
+    window.dispatchEvent(new Event(STORAGE_EVENT));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function isToday(timestamp: number): boolean {
@@ -46,6 +72,7 @@ function sessionRecordToCompleted(record: SessionRecord): CompletedSession {
     totalFocusTime: record.totalFocusTime,
     overtimeMs: record.overtimeMs,
     completedAt: record.completedAt,
+    startedAt: record.startedAt,
     notes: record.notes,
   };
 }
@@ -60,7 +87,7 @@ function completedToCreateInput(
     plannedDuration: session.plannedDuration,
     totalFocusTime: session.totalFocusTime,
     overtimeMs: session.overtimeMs,
-    startedAt: session.completedAt - session.totalFocusTime,
+    startedAt: session.startedAt ?? session.completedAt - session.totalFocusTime,
     completedAt: session.completedAt,
     notes: session.notes,
   };
@@ -69,8 +96,10 @@ function completedToCreateInput(
 export function useSessions() {
   const { user, isLoaded } = useUser();
   const isSignedIn = !!user;
+  const userId = user?.id ?? null;
 
   const [sessions, setSessions] = useState<CompletedSession[]>([]);
+  const [sessionsOwnerId, setSessionsOwnerId] = useState<string | null | undefined>(undefined);
   const [hydrated, setHydrated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,12 +107,14 @@ export function useSessions() {
     setSessions(readLocalSessions());
   }, []);
 
-  const refreshServer = useCallback(async () => {
+  const refreshServer = useCallback(async (signal?: AbortSignal) => {
     try {
-      const records = await sessionsApi.list();
+      const records = await sessionsApi.list(signal);
+      if (signal?.aborted) return;
       setSessions(records.map(sessionRecordToCompleted));
       setError(null);
     } catch (err) {
+      if (signal?.aborted) return;
       if (err instanceof SessionsApiError && err.statusCode === 401) {
         setError("Please sign in to view your sessions.");
       } else {
@@ -96,99 +127,134 @@ export function useSessions() {
   useEffect(() => {
     if (!isLoaded) return;
 
-    if (isSignedIn) {
-      refreshServer().finally(() => setHydrated(true));
-    } else {
-      refreshLocal();
-      setHydrated(true);
+    const controller = new AbortController();
+    let cancelled = false;
 
-      const handleStorage = (e: StorageEvent) => {
-        if (e.key === HISTORY_KEY) refreshLocal();
-      };
-      const handleCustom = () => refreshLocal();
+    // Defer state updates until after the effect callback. visibleSessions
+    // already hides records whose owner does not match the current identity.
+    void Promise.resolve().then(async () => {
+      if (cancelled) return;
+      setSessions([]);
+      setSessionsOwnerId(userId);
+      setError(null);
+      setHydrated(false);
 
-      window.addEventListener("storage", handleStorage);
-      window.addEventListener(STORAGE_EVENT, handleCustom);
-      return () => {
-        window.removeEventListener("storage", handleStorage);
-        window.removeEventListener(STORAGE_EVENT, handleCustom);
-      };
-    }
-  }, [isLoaded, isSignedIn, refreshLocal, refreshServer]);
+      if (isSignedIn) {
+        await refreshServer(controller.signal);
+        if (!cancelled && !controller.signal.aborted) setHydrated(true);
+      } else {
+        refreshLocal();
+        if (!cancelled) setHydrated(true);
+      }
+    });
+
+    const handleStorage = (e: StorageEvent) => {
+      if (!isSignedIn && e.key === HISTORY_KEY) refreshLocal();
+    };
+    const handleCustom = () => {
+      if (!isSignedIn) refreshLocal();
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(STORAGE_EVENT, handleCustom);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(STORAGE_EVENT, handleCustom);
+    };
+  }, [isLoaded, isSignedIn, userId, refreshLocal, refreshServer]);
 
   const removeSession = useCallback(
-    async (sessionId: string) => {
+    async (sessionId: string): Promise<boolean> => {
       if (isSignedIn) {
         try {
           await sessionsApi.delete(sessionId);
           setSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
+          setError(null);
+          return true;
         } catch (err) {
           if (err instanceof SessionsApiError) {
             setError(err.message);
           } else {
             setError("Could not delete the session.");
           }
+          return false;
         }
       } else {
         const current = readLocalSessions();
-        writeLocalSessions(current.filter((s) => s.sessionId !== sessionId));
+        const success = writeLocalSessions(current.filter((s) => s.sessionId !== sessionId));
+        setError(success ? null : "Browser storage is unavailable. Could not delete the session.");
+        return success;
       }
     },
     [isSignedIn],
   );
 
   const updateNotes = useCallback(
-    async (sessionId: string, notes: string) => {
+    async (sessionId: string, notes: string): Promise<boolean> => {
       if (isSignedIn) {
         try {
           await sessionsApi.update(sessionId, { notes });
           setSessions((prev) =>
             prev.map((s) => (s.sessionId === sessionId ? { ...s, notes } : s)),
           );
+          setError(null);
+          return true;
         } catch (err) {
           if (err instanceof SessionsApiError) {
             setError(err.message);
           } else {
             setError("Could not update notes.");
           }
+          return false;
         }
       } else {
         const current = readLocalSessions();
-        writeLocalSessions(
-          current.map((s) =>
-            s.sessionId === sessionId ? { ...s, notes } : s,
-          ),
+        const success = writeLocalSessions(
+          current.map((s) => s.sessionId === sessionId ? { ...s, notes } : s),
         );
+        setError(success ? null : "Browser storage is unavailable. Could not update notes.");
+        return success;
       }
     },
     [isSignedIn],
   );
 
   const saveCompletedSession = useCallback(
-    async (session: CompletedSession, status: "Complete" | "Discard") => {
+    async (session: CompletedSession, status: "Complete" | "Discard"): Promise<boolean> => {
+      // Discarded work is intentionally not part of session history.
+      if (status === "Discard") return true;
       if (isSignedIn) {
         try {
           await sessionsApi.create(completedToCreateInput(session, status));
           await refreshServer();
+          return true;
         } catch (err) {
           if (err instanceof SessionsApiError) {
             setError(err.message);
           } else {
             setError("Could not save the session.");
           }
+          return false;
         }
       } else {
         const history = readLocalSessions();
-        if (history.some((item) => item.sessionId === session.sessionId)) return;
+        if (history.some((item) => item.sessionId === session.sessionId)) return true;
         history.unshift(session);
-        writeLocalSessions(history);
+        const success = writeLocalSessions(history);
+        setError(success ? null : "Browser storage is unavailable. Could not save the session.");
+        return success;
       }
     },
     [isSignedIn, refreshServer],
   );
 
-  const todaySessions = hydrated
-    ? sessions.filter((s) => isToday(s.completedAt))
+  // Hide stale data synchronously during account changes, before effects run.
+  const visibleSessions = sessionsOwnerId === userId ? sessions : [];
+  const visibleHydrated = hydrated && sessionsOwnerId === userId;
+  const todaySessions = visibleHydrated
+    ? visibleSessions.filter((s) => isToday(s.completedAt))
     : [];
 
   const todayFocusMs = todaySessions.reduce(
@@ -197,11 +263,11 @@ export function useSessions() {
   );
 
   return {
-    sessions,
+    sessions: visibleSessions,
     todaySessions,
     todayCount: todaySessions.length,
     todayFocusMs,
-    hydrated,
+    hydrated: visibleHydrated,
     error,
     removeSession,
     updateNotes,

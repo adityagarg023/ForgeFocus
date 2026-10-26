@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import { useTimerEngine } from "@/lib/use-timer-engine";
 import { useSessions, isToday } from "@/lib/use-sessions";
+
+vi.mock("@clerk/nextjs", () => ({
+  useUser: () => ({ user: null, isLoaded: true }),
+}));
 
 const ACTIVE_KEY = "forgefocus:active-session";
 const HISTORY_KEY = "forgefocus:session-history";
@@ -11,17 +15,20 @@ beforeEach(() => {
 });
 
 describe("useTimerEngine — persistence", () => {
-  it("starts with no active session", () => {
+  it("starts with no active session", async () => {
     const { result } = renderHook(() => useTimerEngine());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
     expect(result.current.status).toBe("Idle");
     expect(result.current.session).toBeNull();
   });
 
-  it("persists active session to localStorage", () => {
+  it("persists active session to localStorage", async () => {
     const { result } = renderHook(() => useTimerEngine());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
     act(() => {
       result.current.start(60);
     });
+    await waitFor(() => expect(localStorage.getItem(ACTIVE_KEY)).not.toBeNull());
     const stored = JSON.parse(
       localStorage.getItem(ACTIVE_KEY) || "null",
     );
@@ -30,7 +37,7 @@ describe("useTimerEngine — persistence", () => {
     expect(stored.plannedDuration).toBe(60_000);
   });
 
-  it("restores active session from localStorage on mount", () => {
+  it("restores active session from localStorage on mount", async () => {
     const fakeSession = {
       sessionId: "restore-1",
       status: "Running",
@@ -48,26 +55,31 @@ describe("useTimerEngine — persistence", () => {
     localStorage.setItem(ACTIVE_KEY, JSON.stringify(fakeSession));
 
     const { result } = renderHook(() => useTimerEngine());
-    expect(result.current.status).toBe("Running");
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    await waitFor(() => expect(result.current.status).toBe("Running"));
     expect(result.current.session?.sessionId).toBe("restore-1");
   });
 
-  it("clears localStorage on reset", () => {
+  it("clears localStorage on reset", async () => {
     const { result } = renderHook(() => useTimerEngine());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
     act(() => {
       result.current.start(60);
     });
     act(() => {
       result.current.reset();
     });
-    expect(localStorage.getItem(ACTIVE_KEY)).toBeNull();
+    await waitFor(() => expect(localStorage.getItem(ACTIVE_KEY)).toBeNull());
   });
 
-  it("saves completed session to history and clears active on reset", () => {
+  it("saves completed session to history and clears active on reset", async () => {
     const { result } = renderHook(() => useTimerEngine());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
     act(() => {
       result.current.start(60);
     });
+    // Ensure at least one millisecond elapses before completion.
+    await new Promise((resolve) => setTimeout(resolve, 5));
     act(() => {
       result.current.complete("");
     });
@@ -81,11 +93,12 @@ describe("useTimerEngine — persistence", () => {
     act(() => {
       result.current.reset();
     });
-    expect(localStorage.getItem(ACTIVE_KEY)).toBeNull();
+    await waitFor(() => expect(localStorage.getItem(ACTIVE_KEY)).toBeNull());
   });
 
-  it("does not save duplicate sessions on repeated complete calls", () => {
+  it("does not save duplicate sessions on repeated complete calls", async () => {
     const { result } = renderHook(() => useTimerEngine());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
     act(() => {
       result.current.start(60);
     });
@@ -102,22 +115,24 @@ describe("useTimerEngine — persistence", () => {
     expect(history).toHaveLength(1);
   });
 
-  it("handles corrupted active session gracefully", () => {
+  it("handles corrupted active session gracefully", async () => {
     localStorage.setItem(ACTIVE_KEY, "not-valid-json");
     const { result } = renderHook(() => useTimerEngine());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
     expect(result.current.status).toBe("Idle");
-    expect(localStorage.getItem(ACTIVE_KEY)).toBeNull();
+    await waitFor(() => expect(localStorage.getItem(ACTIVE_KEY)).toBeNull());
   });
 
-  it("handles corrupted history gracefully", () => {
+  it("handles corrupted history gracefully", async () => {
     localStorage.setItem(HISTORY_KEY, "not-valid-json");
     const { result } = renderHook(() => useSessions());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
     expect(result.current.sessions).toEqual([]);
   });
 });
 
 describe("useSessions — today filter", () => {
-  it("filters sessions to today only", () => {
+  it("filters sessions to today only", async () => {
     const now = Date.now();
     const yesterday = now - 86_400_000;
 
@@ -128,13 +143,14 @@ describe("useSessions — today filter", () => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions));
 
     const { result } = renderHook(() => useSessions());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
     expect(result.current.todaySessions).toHaveLength(1);
     expect(result.current.todaySessions[0].sessionId).toBe("a");
     expect(result.current.todayCount).toBe(1);
     expect(result.current.todayFocusMs).toBe(60_000);
   });
 
-  it("aggregates today's total focus time", () => {
+  it("aggregates today's total focus time", async () => {
     const now = Date.now();
     const sessions = [
       { sessionId: "a", plannedDuration: 60_000, totalFocusTime: 55_000, overtimeMs: 0, completedAt: now, notes: null },
@@ -143,10 +159,11 @@ describe("useSessions — today filter", () => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions));
 
     const { result } = renderHook(() => useSessions());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
     expect(result.current.todayFocusMs).toBe(85_000);
   });
 
-  it("removes a session by id", () => {
+  it("removes a session by id", async () => {
     const now = Date.now();
     const sessions = [
       { sessionId: "a", plannedDuration: 60_000, totalFocusTime: 60_000, overtimeMs: 0, completedAt: now, notes: null },
@@ -155,6 +172,7 @@ describe("useSessions — today filter", () => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions));
 
     const { result } = renderHook(() => useSessions());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
     act(() => {
       result.current.removeSession("a");
     });
@@ -162,7 +180,7 @@ describe("useSessions — today filter", () => {
     expect(result.current.sessions[0].sessionId).toBe("b");
   });
 
-  it("updates notes for a session", () => {
+  it("updates notes for a session", async () => {
     const now = Date.now();
     const sessions = [
       { sessionId: "a", plannedDuration: 60_000, totalFocusTime: 60_000, overtimeMs: 0, completedAt: now, notes: null },
@@ -170,6 +188,7 @@ describe("useSessions — today filter", () => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions));
 
     const { result } = renderHook(() => useSessions());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
     act(() => {
       result.current.updateNotes("a", "Built the timer");
     });

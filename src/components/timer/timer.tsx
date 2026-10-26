@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { formatTime } from "@/lib/timer-engine";
 import { useTimerEngine, type CompletedSession } from "@/lib/use-timer-engine";
 import { useSessions } from "@/lib/use-sessions";
@@ -58,12 +58,6 @@ export default function Timer() {
   const timer = useTimerEngine(handlePersist);
   const { status, session } = timer;
 
-  useEffect(() => {
-    if (status === "Idle") {
-      setNotes("");
-    }
-  }, [status]);
-
   if (!timer.hydrated) {
     return (
       <div className="flex min-h-60 items-center justify-center text-[#6e7681]">
@@ -97,11 +91,31 @@ export default function Timer() {
     timer.complete("");
   };
 
-  const handleSaveNotes = () => {
-    if (session) {
-      updateNotes(session.sessionId, notes.trim());
+  const handleSaveNotes = async () => {
+    if (!session || status !== "Complete") return;
+
+    const completedSession: CompletedSession = {
+      sessionId: session.sessionId,
+      plannedDuration: session.plannedDuration,
+      totalFocusTime: session.totalFocusTime ?? 0,
+      overtimeMs: Math.max(
+        0,
+        (session.totalFocusTime ?? 0) - session.plannedDuration,
+      ),
+      completedAt: session.completedAt ?? Date.now(),
+      startedAt: session.startTime,
+      notes: notes.trim(),
+    };
+
+    // Retry the idempotent create first, then save notes. Keep the summary
+    // visible if either request fails so the user can retry without losing it.
+    const saved = await saveCompletedSession(completedSession, "Complete");
+    if (!saved) return;
+    const notesSaved = await updateNotes(session.sessionId, notes.trim());
+    if (notesSaved) {
+      setNotes("");
+      timer.reset();
     }
-    timer.reset();
   };
 
   return (

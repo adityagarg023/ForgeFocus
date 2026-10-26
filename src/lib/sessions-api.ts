@@ -38,10 +38,12 @@ async function parseResponse(response: Response) {
 }
 
 export const sessionsApi = {
-  async list(): Promise<SessionRecord[]> {
+  async list(signal?: AbortSignal): Promise<SessionRecord[]> {
     const response = await fetch("/api/sessions", {
       method: "GET",
       headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      signal,
     });
     const data = await parseResponse(response);
     return data.sessions as SessionRecord[];

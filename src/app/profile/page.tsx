@@ -1,6 +1,7 @@
 "use client";
 
 import { Show, SignInButton, SignUpButton, useUser } from "@clerk/nextjs";
+import Image from "next/image";
 import { useSessions } from "@/lib/use-sessions";
 import { formatTime } from "@/lib/timer-engine";
 import { Mail, Calendar, Clock, Target } from "react-feather";
@@ -157,7 +158,7 @@ function ConsistencyChart({
 
 export default function ProfilePage() {
   const { user } = useUser();
-  const { sessions, hydrated } = useSessions();
+  const { sessions, hydrated, error, refresh } = useSessions();
 
   const totalSessions = hydrated ? sessions.length : 0;
   const totalFocusMs = hydrated
@@ -169,12 +170,23 @@ export default function ProfilePage() {
       <h1 className="text-3xl font-bold sm:text-4xl">Profile</h1>
 
       <Show when="signed-in">
+        {error && (
+          <div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#f85149]/30 bg-[#f85149]/10 px-4 py-3 text-sm text-[#f85149]">
+            <span>{error}</span>
+            <button onClick={() => void refresh()} className="rounded-lg border border-[#f85149]/40 px-3 py-1.5 font-semibold hover:bg-[#f85149]/10">
+              Retry
+            </button>
+          </div>
+        )}
         <div className="mt-8 animate-fade-in-up rounded-2xl border border-[#30363d] bg-[#161b22] p-6 sm:p-8">
           <div className="flex items-center gap-5">
             {user?.imageUrl && (
-              <img
+              <Image
                 src={user.imageUrl}
                 alt="Profile"
+                width={80}
+                height={80}
+                unoptimized
                 className="h-16 w-16 rounded-full border-2 border-[#30363d] sm:h-20 sm:w-20"
               />
             )}

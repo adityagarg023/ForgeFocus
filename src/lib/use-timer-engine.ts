@@ -23,6 +23,7 @@ export interface CompletedSession {
   totalFocusTime: number;
   overtimeMs: number;
   completedAt: number;
+  startedAt?: number;
   notes: string | null;
 }
 
@@ -31,28 +32,47 @@ function readActiveSession(): TimerSession | null {
   try {
     const saved = localStorage.getItem(ACTIVE_KEY);
     if (!saved) return null;
-    const parsed = JSON.parse(saved) as TimerSession;
+    const parsed: unknown = JSON.parse(saved);
+    if (!parsed || typeof parsed !== "object") throw new Error("Invalid active session");
+    const value = parsed as Partial<TimerSession>;
+    const validStatus = [
+      "Running", "Paused", "Stopwatch Running", "Stopwatch Paused", "Complete", "Discard",
+    ].includes(value.status ?? "");
+    const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
     if (
-      parsed &&
-      typeof parsed === "object" &&
-      typeof parsed.sessionId === "string" &&
-      typeof parsed.status === "string"
+      typeof value.sessionId === "string" &&
+      value.sessionId.length > 0 &&
+      validStatus &&
+      finite(value.startTime) &&
+      finite(value.plannedDuration) && value.plannedDuration > 0 &&
+      finite(value.endTime) &&
+      finite(value.overtimeElapsed) && value.overtimeElapsed >= 0 &&
+      (value.pausedAt === null || finite(value.pausedAt)) &&
+      (value.timeLeftAtPaused === null || finite(value.timeLeftAtPaused)) &&
+      (value.stopwatchStartTime === null || finite(value.stopwatchStartTime)) &&
+      (value.completedAt === null || finite(value.completedAt)) &&
+      (value.discardTime === null || finite(value.discardTime)) &&
+      (value.totalFocusTime === null || (finite(value.totalFocusTime) && value.totalFocusTime >= 0))
     ) {
-      return parsed;
+      return value as TimerSession;
     }
-    return null;
+    throw new Error("Invalid active session");
   } catch {
-    localStorage.removeItem(ACTIVE_KEY);
+    try { localStorage.removeItem(ACTIVE_KEY); } catch { /* storage unavailable */ }
     return null;
   }
 }
 
 function writeActiveSession(session: TimerSession | null) {
   if (typeof window === "undefined") return;
-  if (session) {
-    localStorage.setItem(ACTIVE_KEY, JSON.stringify(session));
-  } else {
-    localStorage.removeItem(ACTIVE_KEY);
+  try {
+    if (session) {
+      localStorage.setItem(ACTIVE_KEY, JSON.stringify(session));
+    } else {
+      localStorage.removeItem(ACTIVE_KEY);
+    }
+  } catch {
+    // Storage can be disabled or full; the in-memory timer should continue.
   }
 }
 
@@ -61,11 +81,20 @@ function loadCompletedSessions(): CompletedSession[] {
   try {
     const raw = localStorage.getItem(HISTORY_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as CompletedSession[];
+    const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed;
+    return parsed.filter((item): item is CompletedSession => {
+      if (!item || typeof item !== "object") return false;
+      const value = item as Partial<CompletedSession>;
+      return typeof value.sessionId === "string" && value.sessionId.length > 0 &&
+        typeof value.plannedDuration === "number" && Number.isFinite(value.plannedDuration) && value.plannedDuration > 0 &&
+        typeof value.totalFocusTime === "number" && Number.isFinite(value.totalFocusTime) && value.totalFocusTime >= 0 &&
+        typeof value.overtimeMs === "number" && Number.isFinite(value.overtimeMs) && value.overtimeMs >= 0 &&
+        typeof value.completedAt === "number" && Number.isFinite(value.completedAt) &&
+        (value.notes === null || typeof value.notes === "string");
+    });
   } catch {
-    localStorage.removeItem(HISTORY_KEY);
+    try { localStorage.removeItem(HISTORY_KEY); } catch { /* storage unavailable */ }
     return [];
   }
 }
@@ -77,14 +106,23 @@ export type PersistCallback = (
 
 export function useTimerEngine(onPersist?: PersistCallback) {
   const [session, setSession] = useState<TimerSession | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const savingRef = useRef(false);
 
   useEffect(() => {
-    const restored = readActiveSession();
-    if (restored) setSession(restored);
-    setHydrated(true);
+    let cancelled = false;
+    // Defer browser-only restoration until after the initial render.
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      const restored = readActiveSession();
+      if (restored) setSession(restored);
+      setNow(Date.now());
+      setHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -92,14 +130,13 @@ export function useTimerEngine(onPersist?: PersistCallback) {
     writeActiveSession(session);
   }, [session, hydrated]);
 
+  const shouldTick =
+    hydrated &&
+    !!session &&
+    ["Running", "Stopwatch Running"].includes(session.status);
+
   useEffect(() => {
-    if (
-      !hydrated ||
-      !session ||
-      !["Running", "Stopwatch Running"].includes(session.status)
-    ) {
-      return;
-    }
+    if (!shouldTick) return;
 
     const tick = () => {
       const currentTime = Date.now();
@@ -112,10 +149,11 @@ export function useTimerEngine(onPersist?: PersistCallback) {
     tick();
     const interval = window.setInterval(tick, 250);
     return () => window.clearInterval(interval);
-  }, [hydrated, session?.status, session?.endTime]);
+  }, [shouldTick, session?.status, session?.endTime]);
 
   const start = useCallback((durationSeconds: number) => {
     if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return;
+    savingRef.current = false;
     setSession(
       createSession(
         typeof crypto !== "undefined" && crypto.randomUUID
@@ -141,56 +179,65 @@ export function useTimerEngine(onPersist?: PersistCallback) {
 
   const complete = useCallback(
     (notes?: string): CompletedSession | null => {
-      if (savingRef.current) return null;
-      let result: CompletedSession | null = null;
+      if (
+        savingRef.current ||
+        !session ||
+        ["Complete", "Discard"].includes(session.status)
+      ) return null;
 
-      setSession((previous) => {
-        if (
-          !previous ||
-          ["Complete", "Discard"].includes(previous.status)
-        ) {
-          return previous;
+      // Set the guard before scheduling React state updates so rapid clicks
+      // cannot submit the same session more than once.
+      savingRef.current = true;
+      const completed = completeSession(session, Date.now());
+      setSession(completed);
+      const focusTime = completed.totalFocusTime ?? 0;
+      const result: CompletedSession = {
+        sessionId: completed.sessionId,
+        plannedDuration: completed.plannedDuration,
+        totalFocusTime: focusTime,
+        overtimeMs: Math.max(0, focusTime - completed.plannedDuration),
+        completedAt: completed.completedAt ?? Date.now(),
+        startedAt: completed.startTime,
+        notes: notes ?? null,
+      };
+      if (onPersist) {
+        onPersist(result, "Complete");
+      } else {
+        const history = loadCompletedSessions();
+        if (!history.some((item) => item.sessionId === result.sessionId)) {
+          history.unshift(result);
+          try {
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+          } catch {
+            // The timer remains usable even when browser storage is unavailable.
+          }
         }
-        const completed = completeSession(previous, Date.now());
-        savingRef.current = true;
-        const focusTime = completed.totalFocusTime ?? 0;
-        result = {
-          sessionId: completed.sessionId,
-          plannedDuration: completed.plannedDuration,
-          totalFocusTime: focusTime,
-          overtimeMs: Math.max(0, focusTime - completed.plannedDuration),
-          completedAt: completed.completedAt ?? Date.now(),
-          notes: notes ?? null,
-        };
-        if (onPersist) onPersist(result, "Complete");
-        return completed;
-      });
-
-      savingRef.current = false;
+      }
       return result;
     },
-    [onPersist],
+    [onPersist, session],
   );
 
   const discard = useCallback(() => {
-    setSession((previous) => {
-      if (!previous) return previous;
-      if (["Complete", "Discard"].includes(previous.status)) return previous;
-      const discarded = discardSession(previous, Date.now());
-      if (onPersist) {
-        const result: CompletedSession = {
-          sessionId: discarded.sessionId,
-          plannedDuration: discarded.plannedDuration,
-          totalFocusTime: 0,
-          overtimeMs: 0,
-          completedAt: discarded.discardTime ?? Date.now(),
-          notes: null,
-        };
-        onPersist(result, "Discard");
-      }
-      return discarded;
-    });
-  }, [onPersist]);
+    if (
+      savingRef.current ||
+      !session ||
+      ["Complete", "Discard"].includes(session.status)
+    ) return;
+    savingRef.current = true;
+    const discarded = discardSession(session, Date.now());
+    setSession(discarded);
+    const result: CompletedSession = {
+      sessionId: discarded.sessionId,
+      plannedDuration: discarded.plannedDuration,
+      totalFocusTime: 0,
+      overtimeMs: 0,
+      completedAt: discarded.discardTime ?? Date.now(),
+      startedAt: discarded.startTime,
+      notes: null,
+    };
+    onPersist?.(result, "Discard");
+  }, [onPersist, session]);
 
   const reset = useCallback(() => {
     savingRef.current = false;
