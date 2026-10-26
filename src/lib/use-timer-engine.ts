@@ -38,7 +38,7 @@ function readActiveSession(): TimerSession | null {
     const validStatus = [
       "Running", "Paused", "Stopwatch Running", "Stopwatch Paused", "Complete", "Discard",
     ].includes(value.status ?? "");
-    const finite = (n: unknown) => typeof n === "number" && Number.isFinite(n);
+    const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
     if (
       typeof value.sessionId === "string" &&
       value.sessionId.length > 0 &&
