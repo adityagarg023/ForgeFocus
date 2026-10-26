@@ -32,18 +32,33 @@ function readActiveSession(): TimerSession | null {
   try {
     const saved = localStorage.getItem(ACTIVE_KEY);
     if (!saved) return null;
-    const parsed = JSON.parse(saved) as TimerSession;
+    const parsed: unknown = JSON.parse(saved);
+    if (!parsed || typeof parsed !== "object") throw new Error("Invalid active session");
+    const value = parsed as Partial<TimerSession>;
+    const validStatus = [
+      "Running", "Paused", "Stopwatch Running", "Stopwatch Paused", "Complete", "Discard",
+    ].includes(value.status ?? "");
+    const finite = (n: unknown) => typeof n === "number" && Number.isFinite(n);
     if (
-      parsed &&
-      typeof parsed === "object" &&
-      typeof parsed.sessionId === "string" &&
-      typeof parsed.status === "string"
+      typeof value.sessionId === "string" &&
+      value.sessionId.length > 0 &&
+      validStatus &&
+      finite(value.startTime) &&
+      finite(value.plannedDuration) && value.plannedDuration > 0 &&
+      finite(value.endTime) &&
+      finite(value.overtimeElapsed) && value.overtimeElapsed >= 0 &&
+      (value.pausedAt === null || finite(value.pausedAt)) &&
+      (value.timeLeftAtPaused === null || finite(value.timeLeftAtPaused)) &&
+      (value.stopwatchStartTime === null || finite(value.stopwatchStartTime)) &&
+      (value.completedAt === null || finite(value.completedAt)) &&
+      (value.discardTime === null || finite(value.discardTime)) &&
+      (value.totalFocusTime === null || (finite(value.totalFocusTime) && value.totalFocusTime >= 0))
     ) {
-      return parsed;
+      return value as TimerSession;
     }
-    return null;
+    throw new Error("Invalid active session");
   } catch {
-    localStorage.removeItem(ACTIVE_KEY);
+    try { localStorage.removeItem(ACTIVE_KEY); } catch { /* storage unavailable */ }
     return null;
   }
 }
@@ -117,6 +132,7 @@ export function useTimerEngine(onPersist?: PersistCallback) {
 
   const start = useCallback((durationSeconds: number) => {
     if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return;
+    savingRef.current = false;
     setSession(
       createSession(
         typeof crypto !== "undefined" && crypto.randomUUID
@@ -142,58 +158,53 @@ export function useTimerEngine(onPersist?: PersistCallback) {
 
   const complete = useCallback(
     (notes?: string): CompletedSession | null => {
-      if (savingRef.current) return null;
-      let result: CompletedSession | null = null;
+      if (
+        savingRef.current ||
+        !session ||
+        ["Complete", "Discard"].includes(session.status)
+      ) return null;
 
-      setSession((previous) => {
-        if (
-          !previous ||
-          ["Complete", "Discard"].includes(previous.status)
-        ) {
-          return previous;
-        }
-        const completed = completeSession(previous, Date.now());
-        savingRef.current = true;
-        const focusTime = completed.totalFocusTime ?? 0;
-        result = {
-          sessionId: completed.sessionId,
-          plannedDuration: completed.plannedDuration,
-          totalFocusTime: focusTime,
-          overtimeMs: Math.max(0, focusTime - completed.plannedDuration),
-          completedAt: completed.completedAt ?? Date.now(),
-          startedAt: completed.startTime,
-          notes: notes ?? null,
-        };
-        if (onPersist) onPersist(result, "Complete");
-        return completed;
-      });
-
-      savingRef.current = false;
+      // Set the guard before scheduling React state updates so rapid clicks
+      // cannot submit the same session more than once.
+      savingRef.current = true;
+      const completed = completeSession(session, Date.now());
+      setSession(completed);
+      const focusTime = completed.totalFocusTime ?? 0;
+      const result: CompletedSession = {
+        sessionId: completed.sessionId,
+        plannedDuration: completed.plannedDuration,
+        totalFocusTime: focusTime,
+        overtimeMs: Math.max(0, focusTime - completed.plannedDuration),
+        completedAt: completed.completedAt ?? Date.now(),
+        startedAt: completed.startTime,
+        notes: notes ?? null,
+      };
+      onPersist?.(result, "Complete");
       return result;
     },
-    [onPersist],
+    [onPersist, session],
   );
 
   const discard = useCallback(() => {
-    setSession((previous) => {
-      if (!previous) return previous;
-      if (["Complete", "Discard"].includes(previous.status)) return previous;
-      const discarded = discardSession(previous, Date.now());
-      if (onPersist) {
-        const result: CompletedSession = {
-          sessionId: discarded.sessionId,
-          plannedDuration: discarded.plannedDuration,
-          totalFocusTime: 0,
-          overtimeMs: 0,
-          completedAt: discarded.discardTime ?? Date.now(),
-          startedAt: discarded.startTime,
-          notes: null,
-        };
-        onPersist(result, "Discard");
-      }
-      return discarded;
-    });
-  }, [onPersist]);
+    if (
+      savingRef.current ||
+      !session ||
+      ["Complete", "Discard"].includes(session.status)
+    ) return;
+    savingRef.current = true;
+    const discarded = discardSession(session, Date.now());
+    setSession(discarded);
+    const result: CompletedSession = {
+      sessionId: discarded.sessionId,
+      plannedDuration: discarded.plannedDuration,
+      totalFocusTime: 0,
+      overtimeMs: 0,
+      completedAt: discarded.discardTime ?? Date.now(),
+      startedAt: discarded.startTime,
+      notes: null,
+    };
+    onPersist?.(result, "Discard");
+  }, [onPersist, session]);
 
   const reset = useCallback(() => {
     savingRef.current = false;
