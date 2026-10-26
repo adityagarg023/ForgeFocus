@@ -78,6 +78,8 @@ describe("useTimerEngine — persistence", () => {
     act(() => {
       result.current.start(60);
     });
+    // Ensure at least one millisecond elapses before completion.
+    await new Promise((resolve) => setTimeout(resolve, 5));
     act(() => {
       result.current.complete("");
     });
