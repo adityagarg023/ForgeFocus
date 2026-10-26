@@ -65,10 +65,14 @@ function readActiveSession(): TimerSession | null {
 
 function writeActiveSession(session: TimerSession | null) {
   if (typeof window === "undefined") return;
-  if (session) {
-    localStorage.setItem(ACTIVE_KEY, JSON.stringify(session));
-  } else {
-    localStorage.removeItem(ACTIVE_KEY);
+  try {
+    if (session) {
+      localStorage.setItem(ACTIVE_KEY, JSON.stringify(session));
+    } else {
+      localStorage.removeItem(ACTIVE_KEY);
+    }
+  } catch {
+    // Storage can be disabled or full; the in-memory timer should continue.
   }
 }
 
@@ -81,7 +85,7 @@ function loadCompletedSessions(): CompletedSession[] {
     if (!Array.isArray(parsed)) return [];
     return parsed;
   } catch {
-    localStorage.removeItem(HISTORY_KEY);
+    try { localStorage.removeItem(HISTORY_KEY); } catch { /* storage unavailable */ }
     return [];
   }
 }
