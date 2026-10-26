@@ -99,6 +99,7 @@ export function useSessions() {
   const userId = user?.id ?? null;
 
   const [sessions, setSessions] = useState<CompletedSession[]>([]);
+  const [sessionsOwnerId, setSessionsOwnerId] = useState<string | null | undefined>(undefined);
   const [hydrated, setHydrated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -129,6 +130,7 @@ export function useSessions() {
     // Clear account-specific state on identity changes so one account's
     // cached history is never shown while another account is loading.
     setSessions([]);
+    setSessionsOwnerId(userId);
     setError(null);
     setHydrated(false);
 
@@ -241,8 +243,11 @@ export function useSessions() {
     [isSignedIn, refreshServer],
   );
 
-  const todaySessions = hydrated
-    ? sessions.filter((s) => isToday(s.completedAt))
+  // Hide stale data synchronously during account changes, before effects run.
+  const visibleSessions = sessionsOwnerId === userId ? sessions : [];
+  const visibleHydrated = hydrated && sessionsOwnerId === userId;
+  const todaySessions = visibleHydrated
+    ? visibleSessions.filter((s) => isToday(s.completedAt))
     : [];
 
   const todayFocusMs = todaySessions.reduce(
@@ -251,11 +256,11 @@ export function useSessions() {
   );
 
   return {
-    sessions,
+    sessions: visibleSessions,
     todaySessions,
     todayCount: todaySessions.length,
     todayFocusMs,
-    hydrated,
+    hydrated: visibleHydrated,
     error,
     removeSession,
     updateNotes,
