@@ -90,10 +90,12 @@ export function NotesModal({
 }: {
   sessionId: string;
   initialNotes: string;
-  onSave: (sessionId: string, notes: string) => void;
+  onSave: (sessionId: string, notes: string) => Promise<boolean> | boolean;
   onClose: () => void;
 }) {
   const [notes, setNotes] = useState(initialNotes);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -128,21 +130,33 @@ export function NotesModal({
         <div className="mt-1 text-right text-xs text-[#6e7681]">
           {notes.length}/500
         </div>
+        {error && <p role="alert" className="mt-2 text-sm text-[#f85149]">{error}</p>}
         <div className="mt-4 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-xl border border-[#30363d] px-5 py-2.5 text-sm font-semibold text-[#8b949e] transition-colors hover:text-[#e6edf3]"
+            disabled={saving}
+            className="rounded-xl border border-[#30363d] px-5 py-2.5 text-sm font-semibold text-[#8b949e] transition-colors hover:text-[#e6edf3] disabled:opacity-50"
           >
             Cancel
           </button>
           <button
-            onClick={() => {
-              onSave(sessionId, notes.trim());
-              onClose();
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true);
+              setError(null);
+              try {
+                const saved = await onSave(sessionId, notes.trim());
+                if (saved) onClose();
+                else setError("Could not save notes. Please retry.");
+              } catch {
+                setError("Could not save notes. Please retry.");
+              } finally {
+                setSaving(false);
+              }
             }}
-            className="rounded-xl bg-[#2f81f7] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1f6feb]"
+            className="rounded-xl bg-[#2f81f7] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1f6feb] disabled:opacity-50"
           >
-            Save Notes
+            {saving ? "Saving..." : "Save Notes"}
           </button>
         </div>
       </div>
