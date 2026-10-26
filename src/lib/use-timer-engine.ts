@@ -183,7 +183,19 @@ export function useTimerEngine(onPersist?: PersistCallback) {
         startedAt: completed.startTime,
         notes: notes ?? null,
       };
-      onPersist?.(result, "Complete");
+      if (onPersist) {
+        onPersist(result, "Complete");
+      } else {
+        const history = loadCompletedSessions();
+        if (!history.some((item) => item.sessionId === result.sessionId)) {
+          history.unshift(result);
+          try {
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+          } catch {
+            // The timer remains usable even when browser storage is unavailable.
+          }
+        }
+      }
       return result;
     },
     [onPersist, session],
