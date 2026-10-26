@@ -106,14 +106,23 @@ export type PersistCallback = (
 
 export function useTimerEngine(onPersist?: PersistCallback) {
   const [session, setSession] = useState<TimerSession | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const savingRef = useRef(false);
 
   useEffect(() => {
-    const restored = readActiveSession();
-    if (restored) setSession(restored);
-    setHydrated(true);
+    let cancelled = false;
+    // Defer browser-only restoration until after the initial render.
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      const restored = readActiveSession();
+      if (restored) setSession(restored);
+      setNow(Date.now());
+      setHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -121,14 +130,13 @@ export function useTimerEngine(onPersist?: PersistCallback) {
     writeActiveSession(session);
   }, [session, hydrated]);
 
+  const shouldTick =
+    hydrated &&
+    !!session &&
+    ["Running", "Stopwatch Running"].includes(session.status);
+
   useEffect(() => {
-    if (
-      !hydrated ||
-      !session ||
-      !["Running", "Stopwatch Running"].includes(session.status)
-    ) {
-      return;
-    }
+    if (!shouldTick) return;
 
     const tick = () => {
       const currentTime = Date.now();
@@ -141,7 +149,7 @@ export function useTimerEngine(onPersist?: PersistCallback) {
     tick();
     const interval = window.setInterval(tick, 250);
     return () => window.clearInterval(interval);
-  }, [hydrated, session?.status, session?.endTime]);
+  }, [shouldTick, session?.status, session?.endTime]);
 
   const start = useCallback((durationSeconds: number) => {
     if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return;
