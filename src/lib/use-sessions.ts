@@ -127,32 +127,39 @@ export function useSessions() {
   useEffect(() => {
     if (!isLoaded) return;
 
-    // Clear account-specific state on identity changes so one account's
-    // cached history is never shown while another account is loading.
-    setSessions([]);
-    setSessionsOwnerId(userId);
-    setError(null);
-    setHydrated(false);
+    const controller = new AbortController();
+    let cancelled = false;
 
-    if (isSignedIn) {
-      const controller = new AbortController();
-      refreshServer(controller.signal).finally(() => {
-        if (!controller.signal.aborted) setHydrated(true);
-      });
-      return () => controller.abort();
-    }
+    // Defer state updates until after the effect callback. visibleSessions
+    // already hides records whose owner does not match the current identity.
+    void Promise.resolve().then(async () => {
+      if (cancelled) return;
+      setSessions([]);
+      setSessionsOwnerId(userId);
+      setError(null);
+      setHydrated(false);
 
-    refreshLocal();
-    setHydrated(true);
+      if (isSignedIn) {
+        await refreshServer(controller.signal);
+        if (!cancelled && !controller.signal.aborted) setHydrated(true);
+      } else {
+        refreshLocal();
+        if (!cancelled) setHydrated(true);
+      }
+    });
 
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === HISTORY_KEY) refreshLocal();
+      if (!isSignedIn && e.key === HISTORY_KEY) refreshLocal();
     };
-    const handleCustom = () => refreshLocal();
+    const handleCustom = () => {
+      if (!isSignedIn) refreshLocal();
+    };
 
     window.addEventListener("storage", handleStorage);
     window.addEventListener(STORAGE_EVENT, handleCustom);
     return () => {
+      cancelled = true;
+      controller.abort();
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener(STORAGE_EVENT, handleCustom);
     };
