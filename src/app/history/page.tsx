@@ -6,7 +6,7 @@ import { formatTime } from "@/lib/timer-engine";
 import SessionCard, { NotesModal } from "@/components/session-card";
 
 export default function HistoryPage() {
-  const { sessions, hydrated, removeSession, updateNotes } = useSessions();
+  const { sessions, hydrated, error, refresh, removeSession, updateNotes } = useSessions();
   const [editing, setEditing] = useState<{
     sessionId: string;
     notes: string;
@@ -26,6 +26,15 @@ export default function HistoryPage() {
           ? `${filtered.length} session${filtered.length === 1 ? "" : "s"} · ${formatTime(totalFocusMs)} total focus`
           : "Loading..."}
       </p>
+
+      {error && (
+        <div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#f85149]/30 bg-[#f85149]/10 px-4 py-3 text-sm text-[#f85149]">
+          <span>{error}</span>
+          <button onClick={() => void refresh()} className="rounded-lg border border-[#f85149]/40 px-3 py-1.5 font-semibold hover:bg-[#f85149]/10">
+            Retry
+          </button>
+        </div>
+      )}
 
       <div className="mt-6 inline-flex rounded-xl border border-[#30363d] bg-[#161b22] p-1">
         <button
@@ -57,7 +66,7 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {hydrated && filtered.length === 0 && (
+        {hydrated && !error && filtered.length === 0 && (
           <div className="rounded-2xl border border-dashed border-[#30363d] bg-[#161b22]/50 p-12 text-center">
             <p className="text-sm text-[#6e7681]">
               No sessions to show yet. Complete a focus session to build your history.
@@ -65,7 +74,7 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {hydrated && filtered.length > 0 && (
+        {hydrated && !error && filtered.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2">
             {filtered.map((session, index) => (
               <SessionCard
