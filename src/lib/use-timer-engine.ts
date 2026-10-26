@@ -81,9 +81,18 @@ function loadCompletedSessions(): CompletedSession[] {
   try {
     const raw = localStorage.getItem(HISTORY_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as CompletedSession[];
+    const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed;
+    return parsed.filter((item): item is CompletedSession => {
+      if (!item || typeof item !== "object") return false;
+      const value = item as Partial<CompletedSession>;
+      return typeof value.sessionId === "string" && value.sessionId.length > 0 &&
+        typeof value.plannedDuration === "number" && Number.isFinite(value.plannedDuration) && value.plannedDuration > 0 &&
+        typeof value.totalFocusTime === "number" && Number.isFinite(value.totalFocusTime) && value.totalFocusTime >= 0 &&
+        typeof value.overtimeMs === "number" && Number.isFinite(value.overtimeMs) && value.overtimeMs >= 0 &&
+        typeof value.completedAt === "number" && Number.isFinite(value.completedAt) &&
+        (value.notes === null || typeof value.notes === "string");
+    });
   } catch {
     try { localStorage.removeItem(HISTORY_KEY); } catch { /* storage unavailable */ }
     return [];
