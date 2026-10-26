@@ -5,33 +5,17 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - name: Refresh lockfile for patched Next.js (one-time)
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        run: |
-          if node -e "process.exit(require('./package-lock.json').packages['node_modules/next']?.version === '16.4.0' ? 0 : 1)"; then
-            npm install --package-lock-only --ignore-scripts
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package-lock.json
-            git commit -m "fix: update Next.js lockfile to patched release"
-            git push origin "HEAD:${GITHUB_HEAD_REF}"
-          fi
       - name: Install dependencies
         run: npm ci
       - name: Lint
