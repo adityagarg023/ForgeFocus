@@ -20,7 +20,9 @@ export async function GET() {
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("sessions")
-      .select(selectedColumns)
+      .select(
+        "id, session_id, status, planned_duration_ms, total_focus_time_ms, overtime_ms, started_at, completed_at, notes",
+      )
       .eq("clerk_user_id", clerkUserId)
       .eq("status", "Complete")
       .order("completed_at", { ascending: false });
