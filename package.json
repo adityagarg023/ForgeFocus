@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.20",
+    "@supabase/server": "^1.9.2",
+    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
     "@tailwindcss/postcss": "^4.3.3",
     "next": "16.4.3",
@@ -38,5 +40,9 @@
     "vite": "^6.4.5",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^5.0.5"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "unrs-resolver@1.12.2": true
   }
 }
