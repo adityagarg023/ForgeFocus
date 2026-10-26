@@ -205,6 +205,8 @@ export function useSessions() {
 
   const saveCompletedSession = useCallback(
     async (session: CompletedSession, status: "Complete" | "Discard") => {
+      // Discarded work is intentionally not part of session history.
+      if (status === "Discard") return;
       if (isSignedIn) {
         try {
           await sessionsApi.create(completedToCreateInput(session, status));
