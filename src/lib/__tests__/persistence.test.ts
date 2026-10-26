@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { waitFor } from "@testing-library/react";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import { useTimerEngine } from "@/lib/use-timer-engine";
 import { useSessions, isToday } from "@/lib/use-sessions";
 
@@ -16,7 +15,7 @@ beforeEach(() => {
 });
 
 describe("useTimerEngine — persistence", () => {
-  it("starts with no active session", () => {
+  it("starts with no active session", async () => {
     const { result } = renderHook(() => useTimerEngine());
     await waitFor(() => expect(result.current.hydrated).toBe(true));
     expect(result.current.status).toBe("Idle");
