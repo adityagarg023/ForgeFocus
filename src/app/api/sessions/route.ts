@@ -22,6 +22,7 @@ export async function GET() {
       .from("sessions")
       .select(selectedColumns)
       .eq("clerk_user_id", clerkUserId)
+      .eq("status", "Complete")
       .order("completed_at", { ascending: false });
 
     if (error) {
