@@ -24,6 +24,8 @@ jobs:
         run: npm run test
       - name: TypeScript
         run: npm run typecheck
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=critical
       - name: Production build
         run: npm run build
         env:
