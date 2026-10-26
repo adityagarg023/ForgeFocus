@@ -39,18 +39,19 @@ function readLocalSessions(): CompletedSession[] {
       );
     });
   } catch {
-    localStorage.removeItem(HISTORY_KEY);
+    try { localStorage.removeItem(HISTORY_KEY); } catch { /* storage unavailable */ }
     return [];
   }
 }
 
-function writeLocalSessions(sessions: CompletedSession[]) {
-  if (typeof window === "undefined") return;
+function writeLocalSessions(sessions: CompletedSession[]): boolean {
+  if (typeof window === "undefined") return false;
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions));
     window.dispatchEvent(new Event(STORAGE_EVENT));
+    return true;
   } catch {
-    // Storage may be unavailable or full; keep the UI responsive.
+    return false;
   }
 }
 
@@ -156,73 +157,85 @@ export function useSessions() {
   }, [isLoaded, isSignedIn, userId, refreshLocal, refreshServer]);
 
   const removeSession = useCallback(
-    async (sessionId: string) => {
+    async (sessionId: string): Promise<boolean> => {
       if (isSignedIn) {
         try {
           await sessionsApi.delete(sessionId);
           setSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
+          setError(null);
+          return true;
         } catch (err) {
           if (err instanceof SessionsApiError) {
             setError(err.message);
           } else {
             setError("Could not delete the session.");
           }
+          return false;
         }
       } else {
         const current = readLocalSessions();
-        writeLocalSessions(current.filter((s) => s.sessionId !== sessionId));
+        const success = writeLocalSessions(current.filter((s) => s.sessionId !== sessionId));
+        setError(success ? null : "Browser storage is unavailable. Could not delete the session.");
+        return success;
       }
     },
     [isSignedIn],
   );
 
   const updateNotes = useCallback(
-    async (sessionId: string, notes: string) => {
+    async (sessionId: string, notes: string): Promise<boolean> => {
       if (isSignedIn) {
         try {
           await sessionsApi.update(sessionId, { notes });
           setSessions((prev) =>
             prev.map((s) => (s.sessionId === sessionId ? { ...s, notes } : s)),
           );
+          setError(null);
+          return true;
         } catch (err) {
           if (err instanceof SessionsApiError) {
             setError(err.message);
           } else {
             setError("Could not update notes.");
           }
+          return false;
         }
       } else {
         const current = readLocalSessions();
-        writeLocalSessions(
-          current.map((s) =>
-            s.sessionId === sessionId ? { ...s, notes } : s,
-          ),
+        const success = writeLocalSessions(
+          current.map((s) => s.sessionId === sessionId ? { ...s, notes } : s),
         );
+        setError(success ? null : "Browser storage is unavailable. Could not update notes.");
+        return success;
       }
     },
     [isSignedIn],
   );
 
   const saveCompletedSession = useCallback(
-    async (session: CompletedSession, status: "Complete" | "Discard") => {
+    async (session: CompletedSession, status: "Complete" | "Discard"): Promise<boolean> => {
       // Discarded work is intentionally not part of session history.
-      if (status === "Discard") return;
+      if (status === "Discard") return true;
       if (isSignedIn) {
         try {
           await sessionsApi.create(completedToCreateInput(session, status));
           await refreshServer();
+          return true;
         } catch (err) {
           if (err instanceof SessionsApiError) {
             setError(err.message);
           } else {
             setError("Could not save the session.");
           }
+          return false;
         }
       } else {
         const history = readLocalSessions();
-        if (history.some((item) => item.sessionId === session.sessionId)) return;
+        if (history.some((item) => item.sessionId === session.sessionId)) return true;
         history.unshift(session);
-        writeLocalSessions(history);
+        const success = writeLocalSessions(history);
+        setError(success ? null : "Browser storage is unavailable. Could not save the session.");
+        return success;
       }
     },
     [isSignedIn, refreshServer],
