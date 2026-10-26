@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { requireAuth, AuthError } from "@/lib/auth-server";
+import { sessionIdSchema, updateSessionSchema } from "@/lib/session-schemas";
 
 /**
  * PATCH /api/sessions/[sessionId]
@@ -21,40 +22,26 @@ export async function PATCH(
   try {
     const clerkUserId = await requireAuth();
     const { sessionId } = await params;
+    const parsedId = sessionIdSchema.safeParse(sessionId);
+    if (!parsedId.success) {
+      return NextResponse.json({ error: "Invalid session ID" }, { status: 400 });
+    }
 
-    let body: Record<string, unknown>;
+    let body: unknown;
     try {
       body = await request.json();
     } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    const parsed = updateSessionSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid JSON body" },
+        { error: "Invalid session update", issues: parsed.error.flatten() },
         { status: 400 },
       );
     }
-
-    const updates: { notes?: string | null } = {};
-    if (body.notes !== undefined) {
-      if (body.notes !== null && typeof body.notes !== "string") {
-        return NextResponse.json(
-          { error: "notes must be a string or null" },
-          { status: 400 },
-        );
-      }
-      if (typeof body.notes === "string" && body.notes.length > 500) {
-        return NextResponse.json(
-          { error: "notes must be 500 characters or fewer" },
-          { status: 400 },
-        );
-      }
-      updates.notes = body.notes as string | null;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json(
-        { error: "No valid fields to update" },
-        { status: 400 },
-      );
-    }
+    const updates = parsed.data;
 
     const supabaseAdmin = getSupabaseAdmin();
 
@@ -133,6 +120,10 @@ export async function DELETE(
   try {
     const clerkUserId = await requireAuth();
     const { sessionId } = await params;
+    const parsedId = sessionIdSchema.safeParse(sessionId);
+    if (!parsedId.success) {
+      return NextResponse.json({ error: "Invalid session ID" }, { status: 400 });
+    }
 
     const supabaseAdmin = getSupabaseAdmin();
     const { count, error: deleteError } = await supabaseAdmin
