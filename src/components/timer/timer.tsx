@@ -58,12 +58,6 @@ export default function Timer() {
   const timer = useTimerEngine(handlePersist);
   const { status, session } = timer;
 
-  useEffect(() => {
-    if (status === "Idle") {
-      setNotes("");
-    }
-  }, [status]);
-
   if (!timer.hydrated) {
     return (
       <div className="flex min-h-60 items-center justify-center text-[#6e7681]">
@@ -118,7 +112,10 @@ export default function Timer() {
     const saved = await saveCompletedSession(completedSession, "Complete");
     if (!saved) return;
     const notesSaved = await updateNotes(session.sessionId, notes.trim());
-    if (notesSaved) timer.reset();
+    if (notesSaved) {
+      setNotes("");
+      timer.reset();
+    }
   };
 
   return (
