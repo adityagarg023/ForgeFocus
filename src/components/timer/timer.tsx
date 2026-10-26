@@ -97,11 +97,28 @@ export default function Timer() {
     timer.complete("");
   };
 
-  const handleSaveNotes = () => {
-    if (session) {
-      updateNotes(session.sessionId, notes.trim());
-    }
-    timer.reset();
+  const handleSaveNotes = async () => {
+    if (!session || status !== "Complete") return;
+
+    const completedSession: CompletedSession = {
+      sessionId: session.sessionId,
+      plannedDuration: session.plannedDuration,
+      totalFocusTime: session.totalFocusTime ?? 0,
+      overtimeMs: Math.max(
+        0,
+        (session.totalFocusTime ?? 0) - session.plannedDuration,
+      ),
+      completedAt: session.completedAt ?? Date.now(),
+      startedAt: session.startTime,
+      notes: notes.trim(),
+    };
+
+    // Retry the idempotent create first, then save notes. Keep the summary
+    // visible if either request fails so the user can retry without losing it.
+    const saved = await saveCompletedSession(completedSession, "Complete");
+    if (!saved) return;
+    const notesSaved = await updateNotes(session.sessionId, notes.trim());
+    if (notesSaved) timer.reset();
   };
 
   return (
