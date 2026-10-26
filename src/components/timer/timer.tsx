@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { formatTime } from "@/lib/timer-engine";
-import { useTimerEngine } from "@/lib/use-timer-engine";
+import { useTimerEngine, type CompletedSession } from "@/lib/use-timer-engine";
 import { useSessions } from "@/lib/use-sessions";
 
 function TimeInput({
@@ -46,8 +46,16 @@ export default function Timer() {
   const [seconds, setSeconds] = useState("00");
   const [notes, setNotes] = useState("");
 
-  const timer = useTimerEngine();
-  const { updateNotes } = useSessions();
+  const { updateNotes, saveCompletedSession, error: sessionsError } = useSessions();
+
+  const handlePersist = useCallback(
+    (session: CompletedSession, status: "Complete" | "Discard") => {
+      saveCompletedSession(session, status);
+    },
+    [saveCompletedSession],
+  );
+
+  const timer = useTimerEngine(handlePersist);
   const { status, session } = timer;
 
   useEffect(() => {
@@ -110,6 +118,12 @@ export default function Timer() {
           {status === "Discard" && "Session discarded"}
         </span>
       </div>
+
+      {sessionsError && (
+        <div className="w-full max-w-md rounded-xl border border-[#f85149]/30 bg-[#f85149]/10 px-4 py-3 text-sm text-[#f85149]">
+          {sessionsError}
+        </div>
+      )}
 
       <div className="whitespace-nowrap font-extrabold text-[clamp(2.5rem,12vw,7rem)] tabular-nums">
         {isIdle ? (

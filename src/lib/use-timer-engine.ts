@@ -70,16 +70,12 @@ function loadCompletedSessions(): CompletedSession[] {
   }
 }
 
-function persistCompletedSession(session: CompletedSession) {
-  if (typeof window === "undefined") return;
-  const history = loadCompletedSessions();
-  if (history.some((item) => item.sessionId === session.sessionId)) return;
-  history.unshift(session);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-  window.dispatchEvent(new Event("forgefocus:sessions-updated"));
-}
+export type PersistCallback = (
+  session: CompletedSession,
+  status: "Complete" | "Discard",
+) => void;
 
-export function useTimerEngine() {
+export function useTimerEngine(onPersist?: PersistCallback) {
   const [session, setSession] = useState<TimerSession | null>(null);
   const [now, setNow] = useState(Date.now());
   const [hydrated, setHydrated] = useState(false);
@@ -166,21 +162,35 @@ export function useTimerEngine() {
           completedAt: completed.completedAt ?? Date.now(),
           notes: notes ?? null,
         };
-        persistCompletedSession(result);
+        if (onPersist) onPersist(result, "Complete");
         return completed;
       });
 
       savingRef.current = false;
       return result;
     },
-    [],
+    [onPersist],
   );
 
   const discard = useCallback(() => {
-    setSession((previous) =>
-      previous ? discardSession(previous, Date.now()) : previous,
-    );
-  }, []);
+    setSession((previous) => {
+      if (!previous) return previous;
+      if (["Complete", "Discard"].includes(previous.status)) return previous;
+      const discarded = discardSession(previous, Date.now());
+      if (onPersist) {
+        const result: CompletedSession = {
+          sessionId: discarded.sessionId,
+          plannedDuration: discarded.plannedDuration,
+          totalFocusTime: 0,
+          overtimeMs: 0,
+          completedAt: discarded.discardTime ?? Date.now(),
+          notes: null,
+        };
+        onPersist(result, "Discard");
+      }
+      return discarded;
+    });
+  }, [onPersist]);
 
   const reset = useCallback(() => {
     savingRef.current = false;

@@ -67,8 +67,8 @@ export default function ProfilePage() {
 
         <div className="mt-6 rounded-2xl border border-[#30363d] bg-[#161b22] p-5">
           <p className="text-sm text-[#8b949e]">
-            Your focus sessions are stored locally in this browser. Sign in to
-            sync your data across devices in a future update.
+            Your focus sessions are synced to your account and available
+            across devices. Anonymous sessions stay in this browser only.
           </p>
         </div>
       </Show>

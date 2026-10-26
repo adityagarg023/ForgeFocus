@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.20",
+    "@supabase/supabase-js": "^2.118.0",
     "@tailwindcss/postcss": "^4.3.3",
     "next": "16.4.0",
     "postcss": "^8.5.31",
