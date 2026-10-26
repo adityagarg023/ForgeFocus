@@ -23,6 +23,7 @@ export interface CompletedSession {
   totalFocusTime: number;
   overtimeMs: number;
   completedAt: number;
+  startedAt?: number;
   notes: string | null;
 }
 
@@ -160,6 +161,7 @@ export function useTimerEngine(onPersist?: PersistCallback) {
           totalFocusTime: focusTime,
           overtimeMs: Math.max(0, focusTime - completed.plannedDuration),
           completedAt: completed.completedAt ?? Date.now(),
+          startedAt: completed.startTime,
           notes: notes ?? null,
         };
         if (onPersist) onPersist(result, "Complete");
@@ -184,6 +186,7 @@ export function useTimerEngine(onPersist?: PersistCallback) {
           totalFocusTime: 0,
           overtimeMs: 0,
           completedAt: discarded.discardTime ?? Date.now(),
+          startedAt: discarded.startTime,
           notes: null,
         };
         onPersist(result, "Discard");
