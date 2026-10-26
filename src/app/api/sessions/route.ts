@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { requireAuth, AuthError } from "@/lib/auth-server";
 import { dbRowToSession } from "@/lib/session-types";
+import { createSessionSchema } from "@/lib/session-schemas";
 
 /**
  * GET /api/sessions
@@ -19,9 +20,7 @@ export async function GET() {
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("sessions")
-      .select(
-        "id, session_id, status, planned_duration_ms, total_focus_time_ms, overtime_ms, started_at, completed_at, notes",
-      )
+      .select(selectedColumns)
       .eq("clerk_user_id", clerkUserId)
       .order("completed_at", { ascending: false });
 
@@ -73,66 +72,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const sessionId = typeof body.sessionId === "string" ? body.sessionId : null;
-    const status = typeof body.status === "string" ? body.status : null;
-    const plannedDuration = Number(body.plannedDuration);
-    const totalFocusTime = Number(body.totalFocusTime);
-    const overtimeMs = body.overtimeMs !== undefined ? Number(body.overtimeMs) : 0;
-    const startedAt = Number(body.startedAt);
-    const completedAt = Number(body.completedAt);
-    const notes =
-      typeof body.notes === "string" || body.notes === null
-        ? (body.notes as string | null)
-        : null;
-
-    if (!sessionId) {
+    const parsed = createSessionSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "sessionId is required" },
+        { error: "Invalid session data", issues: parsed.error.flatten() },
         { status: 400 },
       );
     }
-    if (!status || !["Complete", "Discard"].includes(status)) {
-      return NextResponse.json(
-        { error: "status must be Complete or Discard" },
-        { status: 400 },
-      );
-    }
-    if (!Number.isFinite(plannedDuration) || plannedDuration < 0) {
-      return NextResponse.json(
-        { error: "plannedDuration must be a non-negative number" },
-        { status: 400 },
-      );
-    }
-    if (!Number.isFinite(totalFocusTime) || totalFocusTime < 0) {
-      return NextResponse.json(
-        { error: "totalFocusTime must be a non-negative number" },
-        { status: 400 },
-      );
-    }
-    if (!Number.isFinite(overtimeMs) || overtimeMs < 0) {
-      return NextResponse.json(
-        { error: "overtimeMs must be a non-negative number" },
-        { status: 400 },
-      );
-    }
-    if (!Number.isFinite(startedAt) || startedAt <= 0) {
-      return NextResponse.json(
-        { error: "startedAt must be a positive epoch millisecond value" },
-        { status: 400 },
-      );
-    }
-    if (!Number.isFinite(completedAt) || completedAt <= 0) {
-      return NextResponse.json(
-        { error: "completedAt must be a positive epoch millisecond value" },
-        { status: 400 },
-      );
-    }
-    if (notes !== null && notes.length > 500) {
-      return NextResponse.json(
-        { error: "notes must be 500 characters or fewer" },
-        { status: 400 },
-      );
-    }
+    const {
+      sessionId,
+      status,
+      plannedDuration,
+      totalFocusTime,
+      overtimeMs,
+      startedAt,
+      completedAt,
+      notes,
+    } = parsed.data;
 
     const row = {
       clerk_user_id: clerkUserId,
@@ -147,6 +103,25 @@ export async function POST(request: NextRequest) {
     };
 
     const supabaseAdmin = getSupabaseAdmin();
+    const selectedColumns =
+      "id, session_id, status, planned_duration_ms, total_focus_time_ms, overtime_ms, started_at, completed_at, notes";
+
+    // Make client retries idempotent for the same authenticated owner.
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from("sessions")
+      .select(selectedColumns)
+      .eq("clerk_user_id", clerkUserId)
+      .eq("session_id", sessionId)
+      .maybeSingle();
+
+    if (existingError) {
+      console.error("sessions POST idempotency check failed", existingError);
+      return NextResponse.json({ error: "Failed to create session" }, { status: 500 });
+    }
+    if (existing) {
+      return NextResponse.json({ session: dbRowToSession(existing) }, { status: 200 });
+    }
+
     const { data, error: insertError } = await supabaseAdmin
       .from("sessions")
       .insert(row)
@@ -157,10 +132,18 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       if (insertError.code === "23505") {
-        return NextResponse.json(
-          { error: "A session with this ID already exists" },
-          { status: 409 },
-        );
+        // Another retry may have won the insert race. Only return a row
+        // belonging to this authenticated user.
+        const { data: duplicate } = await supabaseAdmin
+          .from("sessions")
+          .select(selectedColumns)
+          .eq("clerk_user_id", clerkUserId)
+          .eq("session_id", sessionId)
+          .maybeSingle();
+        if (duplicate) {
+          return NextResponse.json({ session: dbRowToSession(duplicate) }, { status: 200 });
+        }
+        return NextResponse.json({ error: "Session ID conflict" }, { status: 409 });
       }
       console.error("sessions POST insert failed", insertError);
       return NextResponse.json(
