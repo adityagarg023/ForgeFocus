@@ -1,17 +1,19 @@
+import Link from "next/link";
+
 export default function Header() {
   return (
-    <div className="bg-[#010409] h-[10vh] w-[100vw] pl-10 flex items-center text-white justify-between pr-20">
-      <a href="/" className="text-6xl font-bold">
+    <header className="bg-[#010409] h-[10vh] min-h-16 w-full pl-6 pr-6 flex items-center text-white justify-between sm:pl-10 sm:pr-20">
+      <Link href="/" className="text-3xl font-bold sm:text-5xl">
         ForgeFocus
-      </a>
-      <div className=" w-[25vw] flex justify-between">
-        <a href="../session-history" className="text-2xl">
-          Session History
-        </a>
-        <a href="../profile" className="text-2xl">
+      </Link>
+      <nav className="flex gap-6 sm:gap-10">
+        <Link href="/history" className="text-lg sm:text-2xl">
+          History
+        </Link>
+        <Link href="/profile" className="text-lg sm:text-2xl">
           Profile
-        </a>
-      </div>
-    </div>
+        </Link>
+      </nav>
+    </header>
   );
 }

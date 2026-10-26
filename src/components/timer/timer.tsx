@@ -1,19 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Heading from "./heading";
-import { useTimerEngine } from "./timer logic";
-
-function formatTime(milliseconds: number) {
-  const totalSeconds = Math.floor(milliseconds / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  return [hours, minutes, seconds]
-    .map((value) => String(value).padStart(2, "0"))
-    .join(":");
-}
+import { formatTime } from "@/lib/timer-engine";
+import { useTimerEngine } from "@/lib/use-timer-engine";
 
 function TimeInput({
   label,
@@ -92,7 +81,7 @@ export default function Timer() {
 
   return (
     <div className="mx-auto mt-30 flex w-[90%] max-w-5xl flex-col items-center gap-6 rounded-4xl border-2 border-white px-4 py-10 text-white sm:px-8">
-      <Heading />
+      <h1 className="text-4xl font-bold sm:text-6xl">ForgeFocus</h1>
 
       <p className="text-sm text-gray-400">
         {status === "Idle" && "Set your planned focus duration"}
@@ -178,7 +167,7 @@ export default function Timer() {
         {isActive && (
           <>
             <button
-              onClick={timer.complete}
+              onClick={() => timer.complete()}
               className="rounded-xl border border-white px-6 py-3 font-semibold"
             >
               Finish Session
