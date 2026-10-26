@@ -26,13 +26,22 @@ export default function SessionList() {
         </div>
       </div>
 
+      {hydrated && error && (
+        <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#f85149]/30 bg-[#f85149]/10 px-4 py-3 text-sm text-[#f85149]">
+          <span>{error}</span>
+          <button onClick={() => void refresh()} className="rounded-lg border border-[#f85149]/40 px-3 py-1.5 font-semibold hover:bg-[#f85149]/10">
+            Retry
+          </button>
+        </div>
+      )}
+
       {!hydrated && (
         <div className="rounded-2xl border border-[#30363d] bg-[#161b22] p-8 text-center text-[#6e7681]">
           Loading sessions...
         </div>
       )}
 
-      {hydrated && todaySessions.length === 0 && (
+      {hydrated && !error && todaySessions.length === 0 && (
         <div className="rounded-2xl border border-dashed border-[#30363d] bg-[#161b22]/50 p-12 text-center">
           <div className="text-4xl font-bold text-[#30363d]">00:00:00</div>
           <p className="mt-4 text-sm text-[#6e7681]">
@@ -41,7 +50,7 @@ export default function SessionList() {
         </div>
       )}
 
-      {hydrated && todaySessions.length > 0 && (
+      {hydrated && !error && todaySessions.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2">
           {todaySessions.map((session, index) => (
             <SessionCard
