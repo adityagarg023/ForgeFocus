@@ -115,9 +115,7 @@ export function NotesModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-bold">Session Notes</h2>
-        <p className="mt-1 text-sm text-[#6e7681]">
-          What did you accomplish?
-        </p>
+        <p className="mt-1 text-sm text-[#6e7681]">What did you accomplish?</p>
         <textarea
           autoFocus
           value={notes}
@@ -130,7 +128,11 @@ export function NotesModal({
         <div className="mt-1 text-right text-xs text-[#6e7681]">
           {notes.length}/500
         </div>
-        {error && <p role="alert" className="mt-2 text-sm text-[#f85149]">{error}</p>}
+        {error && (
+          <p role="alert" className="mt-2 text-sm text-[#f85149]">
+            {error}
+          </p>
+        )}
         <div className="mt-4 flex justify-end gap-3">
           <button
             onClick={onClose}

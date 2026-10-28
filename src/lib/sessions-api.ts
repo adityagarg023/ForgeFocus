@@ -1,4 +1,8 @@
-import type { SessionRecord, CreateSessionInput, UpdateSessionInput } from "@/lib/session-types";
+import type {
+  SessionRecord,
+  CreateSessionInput,
+  UpdateSessionInput,
+} from "@/lib/session-types";
 
 /**
  * Client-side API layer for session persistence.
@@ -60,19 +64,25 @@ export const sessionsApi = {
   },
 
   async update(sessionId: string, input: UpdateSessionInput): Promise<void> {
-    const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
+    const response = await fetch(
+      `/api/sessions/${encodeURIComponent(sessionId)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      },
+    );
     await parseResponse(response);
   },
 
   async delete(sessionId: string): Promise<void> {
-    const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-    });
+    const response = await fetch(
+      `/api/sessions/${encodeURIComponent(sessionId)}`,
+      {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      },
+    );
     await parseResponse(response);
   },
 };

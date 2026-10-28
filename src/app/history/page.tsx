@@ -6,7 +6,8 @@ import { formatTime } from "@/lib/timer-engine";
 import SessionCard, { NotesModal } from "@/components/session-card";
 
 export default function HistoryPage() {
-  const { sessions, hydrated, error, refresh, removeSession, updateNotes } = useSessions();
+  const { sessions, hydrated, error, refresh, removeSession, updateNotes } =
+    useSessions();
   const [editing, setEditing] = useState<{
     sessionId: string;
     notes: string;
@@ -14,7 +15,9 @@ export default function HistoryPage() {
   const [filter, setFilter] = useState<"all" | "today">("all");
 
   const filtered =
-    filter === "today" ? sessions.filter((s) => isToday(s.completedAt)) : sessions;
+    filter === "today"
+      ? sessions.filter((s) => isToday(s.completedAt))
+      : sessions;
 
   const totalFocusMs = filtered.reduce((sum, s) => sum + s.totalFocusTime, 0);
 
@@ -28,9 +31,15 @@ export default function HistoryPage() {
       </p>
 
       {error && (
-        <div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#f85149]/30 bg-[#f85149]/10 px-4 py-3 text-sm text-[#f85149]">
+        <div
+          role="alert"
+          className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#f85149]/30 bg-[#f85149]/10 px-4 py-3 text-sm text-[#f85149]"
+        >
           <span>{error}</span>
-          <button onClick={() => void refresh()} className="rounded-lg border border-[#f85149]/40 px-3 py-1.5 font-semibold hover:bg-[#f85149]/10">
+          <button
+            onClick={() => void refresh()}
+            className="rounded-lg border border-[#f85149]/40 px-3 py-1.5 font-semibold hover:bg-[#f85149]/10"
+          >
             Retry
           </button>
         </div>
@@ -69,7 +78,8 @@ export default function HistoryPage() {
         {hydrated && !error && filtered.length === 0 && (
           <div className="rounded-2xl border border-dashed border-[#30363d] bg-[#161b22]/50 p-12 text-center">
             <p className="text-sm text-[#6e7681]">
-              No sessions to show yet. Complete a focus session to build your history.
+              No sessions to show yet. Complete a focus session to build your
+              history.
             </p>
           </div>
         )}
@@ -81,7 +91,9 @@ export default function HistoryPage() {
                 key={session.sessionId}
                 session={session}
                 index={index}
-                onEditNotes={(id, notes) => setEditing({ sessionId: id, notes })}
+                onEditNotes={(id, notes) =>
+                  setEditing({ sessionId: id, notes })
+                }
                 onDelete={removeSession}
               />
             ))}

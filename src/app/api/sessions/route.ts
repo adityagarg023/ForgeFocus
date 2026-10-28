@@ -69,10 +69,7 @@ export async function POST(request: NextRequest) {
     try {
       body = await request.json();
     } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON body" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
     const parsed = createSessionSchema.safeParse(body);
@@ -119,10 +116,16 @@ export async function POST(request: NextRequest) {
 
     if (existingError) {
       console.error("sessions POST idempotency check failed", existingError);
-      return NextResponse.json({ error: "Failed to create session" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to create session" },
+        { status: 500 },
+      );
     }
     if (existing) {
-      return NextResponse.json({ session: dbRowToSession(existing) }, { status: 200 });
+      return NextResponse.json(
+        { session: dbRowToSession(existing) },
+        { status: 200 },
+      );
     }
 
     const { data, error: insertError } = await supabaseAdmin
@@ -144,9 +147,15 @@ export async function POST(request: NextRequest) {
           .eq("session_id", sessionId)
           .maybeSingle();
         if (duplicate) {
-          return NextResponse.json({ session: dbRowToSession(duplicate) }, { status: 200 });
+          return NextResponse.json(
+            { session: dbRowToSession(duplicate) },
+            { status: 200 },
+          );
         }
-        return NextResponse.json({ error: "Session ID conflict" }, { status: 409 });
+        return NextResponse.json(
+          { error: "Session ID conflict" },
+          { status: 409 },
+        );
       }
       console.error("sessions POST insert failed", insertError);
       return NextResponse.json(
@@ -155,7 +164,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ session: dbRowToSession(data) }, { status: 201 });
+    return NextResponse.json(
+      { session: dbRowToSession(data) },
+      { status: 201 },
+    );
   } catch (err) {
     if (err instanceof AuthError) {
       return NextResponse.json(

@@ -43,7 +43,11 @@ function ConsistencyChart({
   }
 
   const days: Date[] = [];
-  for (let date = new Date(start); date <= today; date = new Date(date.getTime() + DAY_MS)) {
+  for (
+    let date = new Date(start);
+    date <= today;
+    date = new Date(date.getTime() + DAY_MS)
+  ) {
     days.push(date);
   }
 
@@ -93,12 +97,26 @@ function ConsistencyChart({
     <section className="mt-6 rounded-2xl border border-[#30363d] bg-[#161b22] p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-[#e6edf3]">Focus consistency</h2>
-          <p className="mt-1 text-sm text-[#8b949e]">Your last 365 days of deep work</p>
+          <h2 className="text-lg font-semibold text-[#e6edf3]">
+            Focus consistency
+          </h2>
+          <p className="mt-1 text-sm text-[#8b949e]">
+            Your last 365 days of deep work
+          </p>
         </div>
         <div className="flex gap-4 text-sm text-[#8b949e]">
-          <span><strong className="text-[#e6edf3]">{hydrated ? activeDays : "—"}</strong> active days</span>
-          <span><strong className="text-[#e6edf3]">{hydrated ? currentStreak : "—"}</strong> day streak</span>
+          <span>
+            <strong className="text-[#e6edf3]">
+              {hydrated ? activeDays : "—"}
+            </strong>{" "}
+            active days
+          </span>
+          <span>
+            <strong className="text-[#e6edf3]">
+              {hydrated ? currentStreak : "—"}
+            </strong>{" "}
+            day streak
+          </span>
         </div>
       </div>
 
@@ -106,11 +124,17 @@ function ConsistencyChart({
         <div className="min-w-[660px]">
           <div
             className="mb-2 grid text-[10px] text-[#8b949e]"
-            style={{ gridTemplateColumns: `repeat(${Math.ceil(days.length / 7)}, minmax(0, 1fr))` }}
+            style={{
+              gridTemplateColumns: `repeat(${Math.ceil(days.length / 7)}, minmax(0, 1fr))`,
+            }}
           >
             {Array.from({ length: Math.ceil(days.length / 7) }, (_, column) => {
               const month = monthLabels.find((item) => item.column === column);
-              return <span key={column} className="h-4">{month?.label ?? ""}</span>;
+              return (
+                <span key={column} className="h-4">
+                  {month?.label ?? ""}
+                </span>
+              );
             })}
           </div>
           <div className="flex gap-[3px]">
@@ -118,7 +142,8 @@ function ConsistencyChart({
               <div key={column} className="flex flex-1 flex-col gap-[3px]">
                 {Array.from({ length: 7 }, (_, weekday) => {
                   const date = days[column * 7 + weekday];
-                  if (!date || date > today) return <span key={weekday} className="h-[11px] w-[11px]" />;
+                  if (!date || date > today)
+                    return <span key={weekday} className="h-[11px] w-[11px]" />;
                   const key = localDateKey(date);
                   const focusMs = focusByDay.get(key) ?? 0;
                   const level = levelFor(focusMs);
@@ -143,11 +168,20 @@ function ConsistencyChart({
       </div>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-[#8b949e]">
-        <span>Each square represents one day. More focus time means a brighter square.</span>
-        <div className="flex items-center gap-1.5" aria-label="Focus time legend">
+        <span>
+          Each square represents one day. More focus time means a brighter
+          square.
+        </span>
+        <div
+          className="flex items-center gap-1.5"
+          aria-label="Focus time legend"
+        >
           <span>Less</span>
           {levelClasses.map((className, index) => (
-            <span key={index} className={`h-[11px] w-[11px] rounded-[2px] ${className}`} />
+            <span
+              key={index}
+              className={`h-[11px] w-[11px] rounded-[2px] ${className}`}
+            />
           ))}
           <span>More</span>
         </div>
@@ -171,9 +205,15 @@ export default function ProfilePage() {
 
       <Show when="signed-in">
         {error && (
-          <div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#f85149]/30 bg-[#f85149]/10 px-4 py-3 text-sm text-[#f85149]">
+          <div
+            role="alert"
+            className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#f85149]/30 bg-[#f85149]/10 px-4 py-3 text-sm text-[#f85149]"
+          >
             <span>{error}</span>
-            <button onClick={() => void refresh()} className="rounded-lg border border-[#f85149]/40 px-3 py-1.5 font-semibold hover:bg-[#f85149]/10">
+            <button
+              onClick={() => void refresh()}
+              className="rounded-lg border border-[#f85149]/40 px-3 py-1.5 font-semibold hover:bg-[#f85149]/10"
+            >
               Retry
             </button>
           </div>
@@ -231,8 +271,8 @@ export default function ProfilePage() {
 
         <div className="mt-6 rounded-2xl border border-[#30363d] bg-[#161b22] p-5">
           <p className="text-sm text-[#8b949e]">
-            Your focus sessions are synced to your account and available
-            across devices. Anonymous sessions stay in this browser only.
+            Your focus sessions are synced to your account and available across
+            devices. Anonymous sessions stay in this browser only.
           </p>
         </div>
       </Show>

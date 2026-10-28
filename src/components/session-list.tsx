@@ -6,8 +6,16 @@ import { formatTime } from "@/lib/timer-engine";
 import SessionCard, { NotesModal } from "./session-card";
 
 export default function SessionList() {
-  const { todaySessions, todayCount, todayFocusMs, hydrated, error, refresh, removeSession, updateNotes } =
-    useSessions();
+  const {
+    todaySessions,
+    todayCount,
+    todayFocusMs,
+    hydrated,
+    error,
+    refresh,
+    removeSession,
+    updateNotes,
+  } = useSessions();
   const [editing, setEditing] = useState<{
     sessionId: string;
     notes: string;
@@ -17,7 +25,9 @@ export default function SessionList() {
     <section className="mx-auto w-[90%] max-w-5xl py-12">
       <div className="mb-6 flex items-end justify-between">
         <div>
-          <h2 className="text-2xl font-bold sm:text-3xl">Today&apos;s Sessions</h2>
+          <h2 className="text-2xl font-bold sm:text-3xl">
+            Today&apos;s Sessions
+          </h2>
           <p className="mt-1 text-sm text-[#6e7681]">
             {hydrated
               ? `${todayCount} session${todayCount === 1 ? "" : "s"} · ${formatTime(todayFocusMs)} focused`
@@ -27,9 +37,15 @@ export default function SessionList() {
       </div>
 
       {hydrated && error && (
-        <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#f85149]/30 bg-[#f85149]/10 px-4 py-3 text-sm text-[#f85149]">
+        <div
+          role="alert"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#f85149]/30 bg-[#f85149]/10 px-4 py-3 text-sm text-[#f85149]"
+        >
           <span>{error}</span>
-          <button onClick={() => void refresh()} className="rounded-lg border border-[#f85149]/40 px-3 py-1.5 font-semibold hover:bg-[#f85149]/10">
+          <button
+            onClick={() => void refresh()}
+            className="rounded-lg border border-[#f85149]/40 px-3 py-1.5 font-semibold hover:bg-[#f85149]/10"
+          >
             Retry
           </button>
         </div>

@@ -24,7 +24,10 @@ export async function PATCH(
     const { sessionId } = await params;
     const parsedId = sessionIdSchema.safeParse(sessionId);
     if (!parsedId.success) {
-      return NextResponse.json({ error: "Invalid session ID" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid session ID" },
+        { status: 400 },
+      );
     }
 
     let body: unknown;
@@ -80,10 +83,7 @@ export async function PATCH(
     }
 
     if (!checkData) {
-      return NextResponse.json(
-        { error: "Session not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
     return NextResponse.json({ success: true });
@@ -122,7 +122,10 @@ export async function DELETE(
     const { sessionId } = await params;
     const parsedId = sessionIdSchema.safeParse(sessionId);
     if (!parsedId.success) {
-      return NextResponse.json({ error: "Invalid session ID" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid session ID" },
+        { status: 400 },
+      );
     }
 
     const supabaseAdmin = getSupabaseAdmin();
@@ -141,10 +144,7 @@ export async function DELETE(
     }
 
     if (count === 0) {
-      return NextResponse.json(
-        { error: "Session not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
     return NextResponse.json({ success: true });

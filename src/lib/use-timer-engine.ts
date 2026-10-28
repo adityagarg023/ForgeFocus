@@ -33,32 +33,46 @@ function readActiveSession(): TimerSession | null {
     const saved = localStorage.getItem(ACTIVE_KEY);
     if (!saved) return null;
     const parsed: unknown = JSON.parse(saved);
-    if (!parsed || typeof parsed !== "object") throw new Error("Invalid active session");
+    if (!parsed || typeof parsed !== "object")
+      throw new Error("Invalid active session");
     const value = parsed as Partial<TimerSession>;
     const validStatus = [
-      "Running", "Paused", "Stopwatch Running", "Stopwatch Paused", "Complete", "Discard",
+      "Running",
+      "Paused",
+      "Stopwatch Running",
+      "Stopwatch Paused",
+      "Complete",
+      "Discard",
     ].includes(value.status ?? "");
-    const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
+    const finite = (n: unknown): n is number =>
+      typeof n === "number" && Number.isFinite(n);
     if (
       typeof value.sessionId === "string" &&
       value.sessionId.length > 0 &&
       validStatus &&
       finite(value.startTime) &&
-      finite(value.plannedDuration) && value.plannedDuration > 0 &&
+      finite(value.plannedDuration) &&
+      value.plannedDuration > 0 &&
       finite(value.endTime) &&
-      finite(value.overtimeElapsed) && value.overtimeElapsed >= 0 &&
+      finite(value.overtimeElapsed) &&
+      value.overtimeElapsed >= 0 &&
       (value.pausedAt === null || finite(value.pausedAt)) &&
       (value.timeLeftAtPaused === null || finite(value.timeLeftAtPaused)) &&
       (value.stopwatchStartTime === null || finite(value.stopwatchStartTime)) &&
       (value.completedAt === null || finite(value.completedAt)) &&
       (value.discardTime === null || finite(value.discardTime)) &&
-      (value.totalFocusTime === null || (finite(value.totalFocusTime) && value.totalFocusTime >= 0))
+      (value.totalFocusTime === null ||
+        (finite(value.totalFocusTime) && value.totalFocusTime >= 0))
     ) {
       return value as TimerSession;
     }
     throw new Error("Invalid active session");
   } catch {
-    try { localStorage.removeItem(ACTIVE_KEY); } catch { /* storage unavailable */ }
+    try {
+      localStorage.removeItem(ACTIVE_KEY);
+    } catch {
+      /* storage unavailable */
+    }
     return null;
   }
 }
@@ -86,15 +100,29 @@ function loadCompletedSessions(): CompletedSession[] {
     return parsed.filter((item): item is CompletedSession => {
       if (!item || typeof item !== "object") return false;
       const value = item as Partial<CompletedSession>;
-      return typeof value.sessionId === "string" && value.sessionId.length > 0 &&
-        typeof value.plannedDuration === "number" && Number.isFinite(value.plannedDuration) && value.plannedDuration > 0 &&
-        typeof value.totalFocusTime === "number" && Number.isFinite(value.totalFocusTime) && value.totalFocusTime >= 0 &&
-        typeof value.overtimeMs === "number" && Number.isFinite(value.overtimeMs) && value.overtimeMs >= 0 &&
-        typeof value.completedAt === "number" && Number.isFinite(value.completedAt) &&
-        (value.notes === null || typeof value.notes === "string");
+      return (
+        typeof value.sessionId === "string" &&
+        value.sessionId.length > 0 &&
+        typeof value.plannedDuration === "number" &&
+        Number.isFinite(value.plannedDuration) &&
+        value.plannedDuration > 0 &&
+        typeof value.totalFocusTime === "number" &&
+        Number.isFinite(value.totalFocusTime) &&
+        value.totalFocusTime >= 0 &&
+        typeof value.overtimeMs === "number" &&
+        Number.isFinite(value.overtimeMs) &&
+        value.overtimeMs >= 0 &&
+        typeof value.completedAt === "number" &&
+        Number.isFinite(value.completedAt) &&
+        (value.notes === null || typeof value.notes === "string")
+      );
     });
   } catch {
-    try { localStorage.removeItem(HISTORY_KEY); } catch { /* storage unavailable */ }
+    try {
+      localStorage.removeItem(HISTORY_KEY);
+    } catch {
+      /* storage unavailable */
+    }
     return [];
   }
 }
@@ -183,7 +211,8 @@ export function useTimerEngine(onPersist?: PersistCallback) {
         savingRef.current ||
         !session ||
         ["Complete", "Discard"].includes(session.status)
-      ) return null;
+      )
+        return null;
 
       // Set the guard before scheduling React state updates so rapid clicks
       // cannot submit the same session more than once.
@@ -223,7 +252,8 @@ export function useTimerEngine(onPersist?: PersistCallback) {
       savingRef.current ||
       !session ||
       ["Complete", "Discard"].includes(session.status)
-    ) return;
+    )
+      return;
     savingRef.current = true;
     const discarded = discardSession(session, Date.now());
     setSession(discarded);

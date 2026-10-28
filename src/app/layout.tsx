@@ -5,7 +5,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ForgeFocus — Deep Work Tracker",
-  description: "Plan focus sessions, track actual working time, and review your productivity.",
+  description:
+    "Plan focus sessions, track actual working time, and review your productivity.",
 };
 
 export default function RootLayout({

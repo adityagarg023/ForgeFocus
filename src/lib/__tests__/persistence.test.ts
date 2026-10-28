@@ -28,10 +28,10 @@ describe("useTimerEngine — persistence", () => {
     act(() => {
       result.current.start(60);
     });
-    await waitFor(() => expect(localStorage.getItem(ACTIVE_KEY)).not.toBeNull());
-    const stored = JSON.parse(
-      localStorage.getItem(ACTIVE_KEY) || "null",
+    await waitFor(() =>
+      expect(localStorage.getItem(ACTIVE_KEY)).not.toBeNull(),
     );
+    const stored = JSON.parse(localStorage.getItem(ACTIVE_KEY) || "null");
     expect(stored).not.toBeNull();
     expect(stored.status).toBe("Running");
     expect(stored.plannedDuration).toBe(60_000);
@@ -83,9 +83,7 @@ describe("useTimerEngine — persistence", () => {
     act(() => {
       result.current.complete("");
     });
-    const history = JSON.parse(
-      localStorage.getItem(HISTORY_KEY) || "[]",
-    );
+    const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
     expect(history).toHaveLength(1);
     expect(history[0].sessionId).toBe(result.current.session?.sessionId);
     expect(history[0].totalFocusTime).toBeGreaterThan(0);
@@ -109,9 +107,7 @@ describe("useTimerEngine — persistence", () => {
     act(() => {
       result.current.complete("");
     });
-    const history = JSON.parse(
-      localStorage.getItem(HISTORY_KEY) || "[]",
-    );
+    const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
     expect(history).toHaveLength(1);
   });
 
@@ -137,8 +133,22 @@ describe("useSessions — today filter", () => {
     const yesterday = now - 86_400_000;
 
     const sessions = [
-      { sessionId: "a", plannedDuration: 60_000, totalFocusTime: 60_000, overtimeMs: 0, completedAt: now, notes: null },
-      { sessionId: "b", plannedDuration: 30_000, totalFocusTime: 25_000, overtimeMs: 0, completedAt: yesterday, notes: null },
+      {
+        sessionId: "a",
+        plannedDuration: 60_000,
+        totalFocusTime: 60_000,
+        overtimeMs: 0,
+        completedAt: now,
+        notes: null,
+      },
+      {
+        sessionId: "b",
+        plannedDuration: 30_000,
+        totalFocusTime: 25_000,
+        overtimeMs: 0,
+        completedAt: yesterday,
+        notes: null,
+      },
     ];
     localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions));
 
@@ -153,8 +163,22 @@ describe("useSessions — today filter", () => {
   it("aggregates today's total focus time", async () => {
     const now = Date.now();
     const sessions = [
-      { sessionId: "a", plannedDuration: 60_000, totalFocusTime: 55_000, overtimeMs: 0, completedAt: now, notes: null },
-      { sessionId: "b", plannedDuration: 30_000, totalFocusTime: 30_000, overtimeMs: 0, completedAt: now, notes: null },
+      {
+        sessionId: "a",
+        plannedDuration: 60_000,
+        totalFocusTime: 55_000,
+        overtimeMs: 0,
+        completedAt: now,
+        notes: null,
+      },
+      {
+        sessionId: "b",
+        plannedDuration: 30_000,
+        totalFocusTime: 30_000,
+        overtimeMs: 0,
+        completedAt: now,
+        notes: null,
+      },
     ];
     localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions));
 
@@ -166,8 +190,22 @@ describe("useSessions — today filter", () => {
   it("removes a session by id", async () => {
     const now = Date.now();
     const sessions = [
-      { sessionId: "a", plannedDuration: 60_000, totalFocusTime: 60_000, overtimeMs: 0, completedAt: now, notes: null },
-      { sessionId: "b", plannedDuration: 30_000, totalFocusTime: 30_000, overtimeMs: 0, completedAt: now, notes: null },
+      {
+        sessionId: "a",
+        plannedDuration: 60_000,
+        totalFocusTime: 60_000,
+        overtimeMs: 0,
+        completedAt: now,
+        notes: null,
+      },
+      {
+        sessionId: "b",
+        plannedDuration: 30_000,
+        totalFocusTime: 30_000,
+        overtimeMs: 0,
+        completedAt: now,
+        notes: null,
+      },
     ];
     localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions));
 
@@ -183,7 +221,14 @@ describe("useSessions — today filter", () => {
   it("updates notes for a session", async () => {
     const now = Date.now();
     const sessions = [
-      { sessionId: "a", plannedDuration: 60_000, totalFocusTime: 60_000, overtimeMs: 0, completedAt: now, notes: null },
+      {
+        sessionId: "a",
+        plannedDuration: 60_000,
+        totalFocusTime: 60_000,
+        overtimeMs: 0,
+        completedAt: now,
+        notes: null,
+      },
     ];
     localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions));
 

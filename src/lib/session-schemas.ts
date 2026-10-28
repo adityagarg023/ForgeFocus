@@ -7,7 +7,12 @@ export const createSessionSchema = z
   .object({
     sessionId: z.string().trim().min(1).max(128),
     status: z.enum(["Complete", "Discard"]),
-    plannedDuration: z.number().finite().int().positive().max(99 * 60 * 60 * 1000),
+    plannedDuration: z
+      .number()
+      .finite()
+      .int()
+      .positive()
+      .max(99 * 60 * 60 * 1000),
     totalFocusTime: durationMs,
     overtimeMs: durationMs,
     startedAt: epochMs,

@@ -114,15 +114,10 @@ export function resumeSession(
   return previous;
 }
 
-export function computeFocusTime(
-  previous: TimerSession,
-  now: number,
-): number {
+export function computeFocusTime(previous: TimerSession, now: number): number {
   switch (previous.status) {
     case "Running":
-      return (
-        previous.plannedDuration - Math.max(0, previous.endTime - now)
-      );
+      return previous.plannedDuration - Math.max(0, previous.endTime - now);
     case "Paused":
       return previous.plannedDuration - (previous.timeLeftAtPaused ?? 0);
     case "Stopwatch Running":
@@ -198,10 +193,7 @@ export function maybeEnterOvertime(
   previous: TimerSession,
   now: number,
 ): TimerSession {
-  if (
-    previous.status === "Running" &&
-    now >= previous.endTime
-  ) {
+  if (previous.status === "Running" && now >= previous.endTime) {
     return {
       ...previous,
       status: "Stopwatch Running",

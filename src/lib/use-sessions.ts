@@ -34,12 +34,17 @@ function readLocalSessions(): CompletedSession[] {
         typeof session.completedAt === "number" &&
         Number.isFinite(session.completedAt) &&
         (session.startedAt === undefined ||
-          (typeof session.startedAt === "number" && Number.isFinite(session.startedAt))) &&
+          (typeof session.startedAt === "number" &&
+            Number.isFinite(session.startedAt))) &&
         (session.notes === null || typeof session.notes === "string")
       );
     });
   } catch {
-    try { localStorage.removeItem(HISTORY_KEY); } catch { /* storage unavailable */ }
+    try {
+      localStorage.removeItem(HISTORY_KEY);
+    } catch {
+      /* storage unavailable */
+    }
     return [];
   }
 }
@@ -87,7 +92,8 @@ function completedToCreateInput(
     plannedDuration: session.plannedDuration,
     totalFocusTime: session.totalFocusTime,
     overtimeMs: session.overtimeMs,
-    startedAt: session.startedAt ?? session.completedAt - session.totalFocusTime,
+    startedAt:
+      session.startedAt ?? session.completedAt - session.totalFocusTime,
     completedAt: session.completedAt,
     notes: session.notes,
   };
@@ -99,7 +105,9 @@ export function useSessions() {
   const userId = user?.id ?? null;
 
   const [sessions, setSessions] = useState<CompletedSession[]>([]);
-  const [sessionsOwnerId, setSessionsOwnerId] = useState<string | null | undefined>(undefined);
+  const [sessionsOwnerId, setSessionsOwnerId] = useState<
+    string | null | undefined
+  >(undefined);
   const [hydrated, setHydrated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -183,8 +191,14 @@ export function useSessions() {
         }
       } else {
         const current = readLocalSessions();
-        const success = writeLocalSessions(current.filter((s) => s.sessionId !== sessionId));
-        setError(success ? null : "Browser storage is unavailable. Could not delete the session.");
+        const success = writeLocalSessions(
+          current.filter((s) => s.sessionId !== sessionId),
+        );
+        setError(
+          success
+            ? null
+            : "Browser storage is unavailable. Could not delete the session.",
+        );
         return success;
       }
     },
@@ -212,9 +226,13 @@ export function useSessions() {
       } else {
         const current = readLocalSessions();
         const success = writeLocalSessions(
-          current.map((s) => s.sessionId === sessionId ? { ...s, notes } : s),
+          current.map((s) => (s.sessionId === sessionId ? { ...s, notes } : s)),
         );
-        setError(success ? null : "Browser storage is unavailable. Could not update notes.");
+        setError(
+          success
+            ? null
+            : "Browser storage is unavailable. Could not update notes.",
+        );
         return success;
       }
     },
@@ -222,7 +240,10 @@ export function useSessions() {
   );
 
   const saveCompletedSession = useCallback(
-    async (session: CompletedSession, status: "Complete" | "Discard"): Promise<boolean> => {
+    async (
+      session: CompletedSession,
+      status: "Complete" | "Discard",
+    ): Promise<boolean> => {
       // Discarded work is intentionally not part of session history.
       if (status === "Discard") return true;
       if (isSignedIn) {
@@ -240,10 +261,15 @@ export function useSessions() {
         }
       } else {
         const history = readLocalSessions();
-        if (history.some((item) => item.sessionId === session.sessionId)) return true;
+        if (history.some((item) => item.sessionId === session.sessionId))
+          return true;
         history.unshift(session);
         const success = writeLocalSessions(history);
-        setError(success ? null : "Browser storage is unavailable. Could not save the session.");
+        setError(
+          success
+            ? null
+            : "Browser storage is unavailable. Could not save the session.",
+        );
         return success;
       }
     },

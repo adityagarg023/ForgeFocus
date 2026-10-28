@@ -46,7 +46,11 @@ export default function Timer() {
   const [seconds, setSeconds] = useState("00");
   const [notes, setNotes] = useState("");
 
-  const { updateNotes, saveCompletedSession, error: sessionsError } = useSessions();
+  const {
+    updateNotes,
+    saveCompletedSession,
+    error: sessionsError,
+  } = useSessions();
 
   const handlePersist = useCallback(
     (session: CompletedSession, status: "Complete" | "Discard") => {
@@ -142,11 +146,26 @@ export default function Timer() {
       <div className="whitespace-nowrap font-extrabold text-[clamp(2.5rem,12vw,7rem)] tabular-nums">
         {isIdle ? (
           <div className="flex items-center justify-center text-[#e6edf3]">
-            <TimeInput label="Hours" value={hours} onChange={setHours} max={99} />
+            <TimeInput
+              label="Hours"
+              value={hours}
+              onChange={setHours}
+              max={99}
+            />
             <span className="text-[#30363d]">:</span>
-            <TimeInput label="Minutes" value={minutes} onChange={setMinutes} max={59} />
+            <TimeInput
+              label="Minutes"
+              value={minutes}
+              onChange={setMinutes}
+              max={59}
+            />
             <span className="text-[#30363d]">:</span>
-            <TimeInput label="Seconds" value={seconds} onChange={setSeconds} max={59} />
+            <TimeInput
+              label="Seconds"
+              value={seconds}
+              onChange={setSeconds}
+              max={59}
+            />
           </div>
         ) : (
           <div
@@ -166,9 +185,7 @@ export default function Timer() {
       <div className="flex h-6 items-center gap-3 text-sm text-[#6e7681]">
         {isIdle && <span>Set your planned focus duration</span>}
         {isCountdown && (
-          <span>
-            Planned: {formatTime(session?.plannedDuration ?? 0)}
-          </span>
+          <span>Planned: {formatTime(session?.plannedDuration ?? 0)}</span>
         )}
         {(status === "Stopwatch Running" || status === "Stopwatch Paused") && (
           <span>
@@ -192,7 +209,10 @@ export default function Timer() {
             <SummaryStat
               label="Overtime"
               value={formatTime(
-                Math.max(0, (session.totalFocusTime ?? 0) - session.plannedDuration),
+                Math.max(
+                  0,
+                  (session.totalFocusTime ?? 0) - session.plannedDuration,
+                ),
               )}
               color={
                 (session.totalFocusTime ?? 0) > session.plannedDuration
@@ -297,12 +317,12 @@ function StatusDot({ status }: { status: string }) {
             : "bg-[#30363d]";
 
   const animate =
-    status === "Running" || status === "Stopwatch Running" ? "animate-pulse" : "";
+    status === "Running" || status === "Stopwatch Running"
+      ? "animate-pulse"
+      : "";
 
   return (
-    <span
-      className={`inline-block h-2 w-2 rounded-full ${color} ${animate}`}
-    />
+    <span className={`inline-block h-2 w-2 rounded-full ${color} ${animate}`} />
   );
 }
 
