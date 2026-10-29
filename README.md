@@ -73,7 +73,3 @@ The repository includes timer, local persistence, and session validation tests. 
 - **Database:** Supabase-hosted PostgreSQL.
 - **Validation:** Zod on server-side session inputs.
 - **Tests:** Vitest and Testing Library.
-
-## Deployment
-
-Deployment is intentionally not performed as part of this work. Before deploying, configure production Clerk domains/redirect URLs and production Supabase credentials, apply and verify migrations, run the quality checks, and test two separate accounts to confirm cross-user isolation.
